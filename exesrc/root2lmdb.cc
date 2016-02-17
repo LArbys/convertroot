@@ -24,6 +24,7 @@
 // larbys root utilities
 #include "adc2rgb.h"
 #include "root2image.h"
+#include "emptyfilter.h"
 
 // ROOT
 #include "TFile.h"
@@ -78,7 +79,7 @@ int main( int narg, char** argv ) {
   std::string outdb = argv[2];
   std::string enc = "";
   int SEED = 12356;
-
+  bool write_rejected = true;
 
   // read input files
   std::vector< std::pair<std::string,int> > inputlist; // [filename, label]
@@ -134,6 +135,9 @@ int main( int narg, char** argv ) {
   // convertor
   larbys::util::Root2Image convertor;
 
+  // filter
+  larbys::util::EmptyFilter filter( 5.0, 5.0/(224.0*224.0) );
+
   // Image Protobuf
   caffe::Datum datum;
 
@@ -142,7 +146,9 @@ int main( int narg, char** argv ) {
   for ( std::set<int>::iterator it_label=labelset.begin(); it_label!=labelset.end(); it_label++ ) {
     tot_entries_left += entriesleft_per_class[ *it_label ];
   }
+
   int numfilled = 0;
+  int numrejected = 0;
   TRandom3 rand( SEED );
 
   while ( tot_entries_left>0 ) {
@@ -165,11 +171,13 @@ int main( int narg, char** argv ) {
     currententry_per_class[ fill_index ]++;
     entriesleft_per_class[ fill_index ]--;
 
+    bool passes = filter.passesFilter( *(p_bb_img_plane2[fill_index]) );
+
     // extract image as opencv mat
     int height = sqrt( p_bb_img_plane2[ fill_index ]->size() );
     int width = height;
     cv::Mat cv_img = convertor.vec2image( *(p_bb_img_plane2[fill_index]), height, width );
-    if ( cv_img.data ) {
+    if ( cv_img.data && passes ) {
       if ( enc.size() ) {
 	// encode the values
 	std::vector<uchar> buf;
@@ -190,7 +198,7 @@ int main( int narg, char** argv ) {
       CHECK( datum.SerializeToString(&out) );
       
       // make key for db entry
-      std::string key_str = "class_" + caffe::format_int( label, 2  ) + "_" + caffe::format_int( currententry_per_class[ fill_index ]-1, 8 );
+      std::string key_str = caffe::format_int(numfilled,10) + "_" + caffe::format_int( label, 2  );
       
       // store in db
       txn->Put( key_str, out );
@@ -203,6 +211,14 @@ int main( int narg, char** argv ) {
 	//std::cout << "process " << entry << " images" << std::endl;
       }
     }//if data is good
+    else{
+      if ( cv_img.data && !passes && write_rejected ) {
+	numrejected++;
+	char rejectname[500];
+	sprintf( rejectname, "rejected_by_filter_%05d.jpg", numrejected );
+	cv::imwrite( rejectname, cv_img );	
+      }
+    }
 
     // update number of entries
     tot_entries_left = 0;
@@ -217,7 +233,9 @@ int main( int narg, char** argv ) {
       }
       std::cout << std::endl;
     }
-
+    
+    //if ( numfilled>=10 )
+    //break;
   }
   
   // last commit

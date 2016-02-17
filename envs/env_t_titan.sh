@@ -1,0 +1,11 @@
+export CAFFE_INCDIR=/home/taritree/software/caffe/include
+export CAFFE_LIBDIR=/home/taritree/software/caffe/lib
+export CUDA_INCDIR=/usr/local/cuda-7.5/targets/x86_64-linux/include
+export LMDB_LIBDIR=/usr/lib/x86_64-linux-gnu
+export LMDB_INCDIR=/usr/include
+export PROTOBUF_LIBDIR=/usr/lib/x86_64-linux-gnu
+export PROTOBUF_INCDIR=/usr/include
+export OPENCV_LIBDIR=/usr/local/lib
+export OPENCV_INCDIR=/usr/local/include
+export BOOST_LIBDIR=/usr/lib/x86_64-linux-gnu
+export LD_LIBRARY_PATH=.:${LD_LIBRARY_PATH}

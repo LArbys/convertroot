@@ -1,7 +1,8 @@
 import os,sys
 import random
 
-basedir = "/Users/twongjirad/working/larbys/data"
+#basedir = "/Users/twongjirad/working/larbys/data" # T's laptop
+basedir = "/mnt/disk0/taritree/larbys"
 
 classes_info = {0:{"folder":"single_eminus/rootfiles",  "particle":"eminus"},
                 1:{"folder":"single_muminus/rootfiles", "particle":"muminus"},

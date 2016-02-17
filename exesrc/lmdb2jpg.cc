@@ -19,6 +19,7 @@ int main( int nargs, char** argv ) {
 
   std::string input_lmdb = argv[1];
   std::string output_folder = argv[2];
+  int nprocess = atoi(argv[3]);
 
   std::string FLAGS_backend = "lmdb";
   bool write_images = true;
@@ -57,7 +58,7 @@ int main( int nargs, char** argv ) {
 
     cursor->Next();
     nimages++;
-    if (nimages>=10)
+    if (nprocess>0 && nimages>=nprocess)
       break;
   }
 
