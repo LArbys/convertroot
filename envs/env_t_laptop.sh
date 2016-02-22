@@ -1,0 +1,13 @@
+source ~/setup_caffe_env.sh
+export CAFFE_INCDIR=/Users/twongjirad/software/caffe/include
+export CAFFE_LIBDIR=/Users/twongjirad/software/caffe/build/lib
+export CUDA_INCDIR=/usr/local/cuda-7.5/targets/x86_64-linux/include
+export LMDB_LIBDIR=/usr/local/Cellar/lmdb/0.9.14/lib
+export LMDB_INCDIR=/usr/local/Cellar/lmdb/0.9.14/include
+export PROTOBUF_LIBDIR=/usr/local/Cellar/protobuf/2.6.1/lib
+export PROTOBUF_INCDIR=/usr/local/Cellar/protobuf/2.6.1/include
+export OPENCV_LIBDIR=/usr/local/lib
+export OPENCV_INCDIR=/usr/local/include
+export BOOST_LIBDIR=/usr/local/lib
+export LD_LIBRARY_PATH=.:${LD_LIBRARY_PATH}
+export DYLD_LIBRARY_PATH=.:${DYLD_LIBRARY_PATH}
