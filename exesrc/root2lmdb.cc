@@ -176,7 +176,8 @@ int main( int narg, char** argv ) {
     // extract image as opencv mat
     int height = sqrt( p_bb_img_plane2[ fill_index ]->size() );
     int width = height;
-    cv::Mat cv_img = convertor.vec2image( *(p_bb_img_plane2[fill_index]), height, width );
+    cv::Mat cv_img;
+    convertor.vec2image( cv_img, *(p_bb_img_plane2[fill_index]), height, width );
     if ( cv_img.data && passes ) {
       if ( enc.size() ) {
 	// encode the values

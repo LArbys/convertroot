@@ -16,6 +16,7 @@ namespace larbys {
       virtual ~EmptyFilter() {};
 
       bool passesFilter( const std::vector<int>& imgvec ); // to be used with root data
+      bool passesTotalFilter( const std::vector<int>& imgvec, float sumthresh );
 
     protected:
       float fADCthreshold;

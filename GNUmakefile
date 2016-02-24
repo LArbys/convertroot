@@ -40,8 +40,8 @@ ifeq (`uname`,'Darwin')
 else
   LDLIBS += -L$(BOOST_LIBDIR) -lboost_system
 endif
-LDLIBS += -L$(CAFFE_LIBDIR)  -lcaffe
-LDFLAGS = -Wl,-rpath,$(CAFFE_LIBDIR)
+LDLIBS += -Wl,-rpath,$(CAFFE_LIBDIR) -L$(CAFFE_LIBDIR)  -lcaffe
+LDLIBS += -Wl,-rpath,$(PWD)
 
 
 CCSRC = $(wildcard src/*.cc)
@@ -53,9 +53,10 @@ EXEBIN = $(addprefix bin/,$(EXES))
 OSXHACK =
 ifeq (`uname`,'Darwin')
   OSXHACK=install_name_tool -change libcaffe.dylib.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.dylib.1.0.0-rc3 $@
+  @echo $(OSXHACK)
 endif
 
-all: libconvertroot.so bin/root2lmdb bin/lmdb2jpg
+all: libconvertroot.so bin/root2lmdb bin/lmdb2jpg bin/bnb_root2lmdb bin/tridata_lmdb2jpg
 
 caffe.pb.o:
 	@rm -f src/caffe.pb.cc include/caffe.pb.h
@@ -69,8 +70,8 @@ caffe.pb.o:
 	$(CXX) -c $(CXXFLAGS) -o $@ $^
 
 libconvertroot.so: $(COBJS)
-	$(CXX) -shared $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	$(OSXHACK)
+	$(CXX) -shared -install_name '@rpath/libconvertroot.so' $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	install_name_tool -change libcaffe.so.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.so.1.0.0-rc3 $@
 
 .obj/root2lmdb.o: exesrc/root2lmdb.cc
 	$(CXX) $(CXXFLAGS) -c exesrc/root2lmdb.cc -o .obj/root2lmdb.o
@@ -80,13 +81,29 @@ bin/root2lmdb: .obj/root2lmdb.o libconvertroot.so
 	$(CXX) $(LDFLAGS) -o bin/root2lmdb $^ $(LDLIBS)
 	$(OSXHACK)
 
+.obj/bnb_root2lmdb.o: exesrc/bnb_root2lmdb.cc
+	$(CXX) $(CXXFLAGS) -c exesrc/bnb_root2lmdb.cc -o .obj/bnb_root2lmdb.o
+
+bin/bnb_root2lmdb: .obj/bnb_root2lmdb.o libconvertroot.so
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o bin/bnb_root2lmdb $^ $(LDLIBS)
+	@echo install_name_tool -change libcaffe.dylib.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.dylib.1.0.0-rc3 $@
+	install_name_tool -change libcaffe.so.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.so.1.0.0-rc3 $@
+
 .obj/lmdb2jpg.o: exesrc/lmdb2jpg.cc
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 bin/lmdb2jpg: .obj/lmdb2jpg.o libconvertroot.so
 	@mkdir -p bin
 	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-	$(OSXHACK)
+
+.obj/tridata_lmdb2jpg.o: exesrc/tridata_lmdb2jpg.cc
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
+
+bin/tridata_lmdb2jpg: .obj/tridata_lmdb2jpg.o libconvertroot.so
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+	install_name_tool -change libcaffe.so.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.so.1.0.0-rc3 $@
 
 clean:
 	@rm bin/* .obj/* src/caffe.pb.cc include/caffe.pb.h

@@ -112,9 +112,8 @@ namespace larbys {
 	  break;
 	};
       }
+      assert(false);
     };
-    
-    assert(false);
   }
 }
 

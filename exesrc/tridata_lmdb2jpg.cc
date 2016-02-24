@@ -2,6 +2,8 @@
 #include <string>
 
 // Utility to dump out an lmdb archive. A way to check images.
+// Program assumes trinocular data (3 plane data)
+
 #include "caffe/util/db.hpp"
 #include "caffe/util/io.hpp"
 
@@ -47,7 +49,11 @@ int main( int nargs, char** argv ) {
       continue;
     }
 
-    cv::Mat img = convertor.datum2image( datum, is_color );
+    cv::Mat tri_img;
+    convertor.datum2TriData( tri_img, datum, is_color );
+    //std::cout << tri_img << std::endl;
+    cv::Mat img;
+    convertor.tridata2image( tri_img, img );
 
     // make the filename: replace all instances of / and . with _
     std::string fname = cursor->key();

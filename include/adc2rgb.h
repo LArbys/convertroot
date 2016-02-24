@@ -32,9 +32,9 @@ namespace larbys {
       float getBaseline() { return BASELINE; };
       void setDefault() {
 	BASELINE = 0;
-	ADC_MIP = 20.0;
+	ADC_MIP = 30.0;
 	ADC_MIN = -10.0;
-	ADC_MAX = 190.0;
+	ADC_MAX = 200.0;
       };
 
     };

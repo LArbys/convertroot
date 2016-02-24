@@ -16,5 +16,15 @@ namespace larbys {
       return false;
     }
 
+    bool EmptyFilter::passesTotalFilter( const std::vector<int>& imgvec, float sumthresh ) {
+      float totpixels = 0;
+      for ( std::vector<int>::const_iterator it_pixel=imgvec.begin(); it_pixel!=imgvec.end(); it_pixel++ ) {
+	totpixels += (float)(*it_pixel);
+      }
+      if ( totpixels>sumthresh )
+	return true;
+      return false;
+    }
+
   }
 }

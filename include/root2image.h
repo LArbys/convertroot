@@ -7,6 +7,8 @@
 namespace larbys {
   namespace util {
 
+    typedef cv::Vec<uchar, 9> Vec9b;
+
     class Root2Image {
 
     public:
@@ -16,7 +18,9 @@ namespace larbys {
 
       ADC2RGB colorscale;
 
-      cv::Mat vec2image( const std::vector<int>& img, const int height, const int width );
+      void vec2image( cv::Mat& mat, const std::vector<int>& img, const int height, const int width );
+      void vec2image( cv::Mat& mat, const std::vector<int>& img0, const std::vector<int>& img1, const std::vector<int>& img2, 
+		      const int height, const int width );
 			 
       
 

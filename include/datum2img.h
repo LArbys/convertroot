@@ -14,6 +14,8 @@ namespace larbys {
       virtual ~Datum2Image() {};
 
       cv::Mat datum2image( caffe::Datum& datum, bool is_color=true );
+      void datum2TriData( cv::Mat& mat, caffe::Datum& datum, bool is_color=true );
+      void tridata2image( const cv::Mat& tridata, cv::Mat& image );
 
     };
 
