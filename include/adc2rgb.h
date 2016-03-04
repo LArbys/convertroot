@@ -25,6 +25,7 @@ namespace larbys {
 
     public:
       void getRGB( float ADC, float&r, float&g, float& b );
+      float getGreyscale( float ADC );
       void setBaseline( float baseline_ ) { BASELINE = baseline_; };
       void setADC_MIP( float ADC_MIP_ ) { ADC_MIP = ADC_MIP_; };
       void setADC_MIN( float ADC_MIN_ ) { ADC_MIN = ADC_MIN_; };

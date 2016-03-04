@@ -42,10 +42,10 @@ int main( int nargs, char** argv ) {
     datum.ParseFromString( cursor->value() );
     std::cout << "[ label " << datum.label() << " ] key=" << cursor->key() << " " << datum.height() << " x " << datum.width() << " x " << datum.channels() << std::endl;
     
-    if ( datum.label()==0 || datum.label()>3 ) {
-      cursor->Next();
-      continue;
-    }
+    // if ( datum.label()==0 || datum.label()>3 ) {
+    //   cursor->Next();
+    //   continue;
+    // }
 
     cv::Mat img = convertor.datum2image( datum, is_color );
 
@@ -67,5 +67,5 @@ int main( int nargs, char** argv ) {
       break;
   }
 
-
+  std::cout << "FIN." << std::endl;
 }

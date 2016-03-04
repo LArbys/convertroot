@@ -49,11 +49,12 @@ LDLIBS += $(ROOTLIBS) -L$(LMDB_LIBDIR) -llmdb -lleveldb -L$(PROTOBUF_LIBDIR) -lp
 
 CCSRC = $(wildcard src/*.cc)
 COBJS = $(addprefix .obj/, $(notdir $(CCSRC:.cc=.o)))
-EXESRC = $(addprefix exesrc/, $(addsuffix $(EXES),.cc))
+#EXESRC = $(addprefix exesrc/, $(nodir $(EXES)))
+EXESRC = $(wildcard exesrc/*.cc)
 EXEOBJ = $(addprefix .obj/,$(notdir $(EXESRC:.cc=.o)))
-EXEBIN = $(addprefix bin/,$(EXES))
+EXEBIN = $(addprefix bin/,$(notdir $(EXESRC:.cc=)))
 
-all: libconvertroot.so bin/root2lmdb bin/lmdb2jpg bin/bnb_root2lmdb bin/tridata_lmdb2jpg
+all: libconvertroot.so ${EXEBIN}
 
 caffe.pb.o:
 	@rm -f src/caffe.pb.cc include/caffe.pb.h
@@ -82,7 +83,13 @@ bin/root2lmdb: .obj/root2lmdb.o libconvertroot.so
 bin/bnb_root2lmdb: .obj/bnb_root2lmdb.o libconvertroot.so
 	@mkdir -p bin
 	$(CXX) $(LDFLAGS) -o bin/bnb_root2lmdb $^ $(LDLIBS)
-#	install_name_tool -change libcaffe.so.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.so.1.0.0-rc3 $@
+
+.obj/data_root2lmdb.o: exesrc/data_root2lmdb.cc
+	$(CXX) $(CXXFLAGS) -c exesrc/data_root2lmdb.cc -o .obj/data_root2lmdb.o
+
+bin/data_root2lmdb: .obj/data_root2lmdb.o libconvertroot.so
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o bin/data_root2lmdb $^ $(LDLIBS)
 
 .obj/lmdb2jpg.o: exesrc/lmdb2jpg.cc
 	$(CXX) $(CXXFLAGS) -c $^ -o $@

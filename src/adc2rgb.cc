@@ -32,7 +32,20 @@ namespace larbys {
 
     }
 
+
+    float ADC2RGB::getGreyscale( float ADC ) {
+      // out of range
+      if ( ADC<ADC_MIN ) {
+	return 0.0;
+      }
+      if ( ADC>ADC_MAX ) {
+	return 1.0;
+      }
+      
+      return (ADC-ADC_MIN)/(ADC_MAX-ADC_MIN);
+    }
+
     
-  }
+  }//end of larbys::util namespace
   
 }
