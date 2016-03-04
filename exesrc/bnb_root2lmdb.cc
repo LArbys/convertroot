@@ -72,7 +72,7 @@ int main( int narg, char** argv ) {
   std::string enc = "";
   int SEED = 123567;
   bool write_rejected = true; // save rejected neutrino events (ones with too few pixels below threshold)
-  bool kTrinocular = true; // fold in all three views into data
+  bool kTrinocular = false; // fold in all three views into data
   float kSigtoBGratio = 1.0; // 1-1 BG to 
   NuImageType_t fNuImageType = kEventImage;
   bool fOverlay = true;
@@ -99,6 +99,7 @@ int main( int narg, char** argv ) {
   // cosmics always use the imgtree
   classtrees[kCosmic] = new TChain( "yolo/imgtree" );
 
+  std::cout << "Setup TChains...";
   std::vector<int>** p_bb_img_plane0 = new std::vector<int>*[NTYPES];
   std::vector<int>** p_bb_img_plane1 = new std::vector<int>*[NTYPES];
   std::vector<int>** p_bb_img_plane2 = new std::vector<int>*[NTYPES];
@@ -135,7 +136,8 @@ int main( int narg, char** argv ) {
   else {
     ncosmic_entries = nbnb_entries;
   }
-    
+  std::cout << "done." << std::endl;
+
   std::cout << "number of BNB entries: " << nbnb_entries << std::endl;
   std::cout << "number of cosmics entries: " << ncosmic_entries << std::endl;
   std::cout << "number of TOTAL cosmic entries: " << ncosmic_tot_entries << std::endl;
@@ -172,18 +174,18 @@ int main( int narg, char** argv ) {
   }
 
   std::cout << "START LOOP" << std::endl;
-  
 
-  while ( entry[kNu] < nbnb_entries || entry[kCosmic] < ncosmic_entries ) {
+  FileTypes_t next_type_to_fill = kNu;
+
+  while ( entry[kNu] < nbnb_entries && entry[kCosmic] < ncosmic_entries ) {
 
     FileTypes_t ftype = kNu;
 
-    // are we filling a cosmic or neutrino event?
-    // choose based on how many left
     int nu_remaining = nbnb_entries - entry[kNu];
     int bg_remaining = ncosmic_entries - entry[kCosmic];
-    //if ( nu_remaining < (nu_remaining+bg_remaining)*rand.Uniform() ) {
-    if ( filled[kCosmic]<filled[kNu] ) {
+
+    // What are we working with in this event
+    if ( next_type_to_fill==kCosmic ) {
       ftype = kCosmic;
       // select the cosmic event (we throw)
       classtrees[kCosmic]->GetEntry(entry[kCosmic]);
@@ -275,7 +277,13 @@ int main( int narg, char** argv ) {
       // store in db
       txn->Put( key_str, out );
       filled[ftype]++;
-      
+
+      // hey we filled
+      // what's the next type?
+      if ( rand.Uniform()<0.25 )
+	next_type_to_fill = kCosmic;
+      else
+	next_type_to_fill = kNu;
 
       if ( numfilled>0 && numfilled%100==0 ) {
 	txn->Commit();

@@ -1,5 +1,6 @@
+source ~/setup_caffe_env.sh
 export CAFFE_INCDIR=/home/taritree/software/caffe/include
-export CAFFE_LIBDIR=/home/taritree/software/caffe/lib
+export CAFFE_LIBDIR=/home/taritree/software/caffe/build/lib
 export CUDA_INCDIR=/usr/local/cuda-7.5/targets/x86_64-linux/include
 export LMDB_LIBDIR=/usr/lib/x86_64-linux-gnu
 export LMDB_INCDIR=/usr/include
