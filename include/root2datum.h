@@ -10,7 +10,7 @@
 // larbys root utilities
 #include "adc2rgb.h"
 #include "root2image.h"
-
+#include "UBBadWires.h"
 
 // class provides convenience functions to make datum objects
 
@@ -19,7 +19,7 @@ namespace larbys {
 
     class Root2Datum {
       
-      friend Root2Datum;
+      friend UBBadWires;
 
     public:
       // config parameters
@@ -38,17 +38,17 @@ namespace larbys {
       ColorOption_t fOptColors;
       bool fWithPMT;
       
+    public:
+
+      larbys::util::Root2Image convertor;
+      larbys::util::ADC2RGB colorscale;
+
       TChain* p_tree;
       std::vector<int>* p_plane0;
       std::vector<int>* p_plane1;
       std::vector<int>* p_plane2;
       std::vector<int>* p_pmt_highgain;
       std::vector<int>* p_pmt_lowgain;
-
-    public:
-
-      larbys::util::Root2Image convertor;
-      larbys::util::ADC2RGB colorscale;
       
     };
     

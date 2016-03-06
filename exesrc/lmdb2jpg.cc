@@ -35,8 +35,8 @@ int main( int nargs, char** argv ) {
 
   std::ifstream bboxes( bbannotationfile.c_str() );
   cv::Scalar r(255,0,0);
-  cv::Scalar g(0,0,255);
-  cv::Scalar b(0,255,0);
+  cv::Scalar g(0,255,0);
+  cv::Scalar b(0,0,255);
   cv::Scalar color[3] = { r, g, b};
   
   // Image protobuf

@@ -34,6 +34,7 @@
 #include "root2datum.h"
 #include "emptyfilter.h"
 #include "BNBLabels.h"
+#include "UBBadWires.h"
 
 // ROOT
 #include "TFile.h"
@@ -66,19 +67,18 @@ int main( int narg, char** argv ) {
   std::string outbblist = "out.txt";
   std::string enc = "";
   int SEED = 123567;
-  bool fTrinocular = false; // fold in all three views into data
+  bool fTrinocular = true; // fold in all three views into data
   bool fAddPMT = false;
   std::string producer = "bnbcosmics";
   const int fNumPlanes = 3;
   double fEnergyCut = -1;
+  bool fApplyBadWireMask = true;
 
   typedef enum { kNu=0, kCosmic, NTYPES } FileTypes_t;
 
-  bool use_rgb = true;
-
-  //larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kGreyScale;
-  larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kFalseColor;
-
+  larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kGreyScale;
+  //larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kFalseColor;
+  
 
   // read input files
   std::vector< std::string > inputlist[NTYPES];
@@ -165,6 +165,12 @@ int main( int narg, char** argv ) {
   // filter
   larbys::util::EmptyFilter filter( 10.0, 10.0/(448.0*448.0) );
 
+  // bad wire tool
+  larbys::util::UBBadWires* badwires[fNumPlanes];
+  badwires[0] = new larbys::util::UBBadWires( 0.001 );
+  badwires[1] = new larbys::util::UBBadWires( 0.001 );
+  badwires[2] = new larbys::util::UBBadWires( 0.001 );
+
   // Image Protobuf
   caffe::Datum datum;
 
@@ -230,10 +236,36 @@ int main( int narg, char** argv ) {
       
     }// end of find useable event
           
-    // if neutrino, add in the cosmic
-    if ( ftype==kNu )
+    // if neutrino, add in the cosmic (after first removing bad wires
+    if ( ftype==kNu ) {
+      if ( fApplyBadWireMask ) {
+	if ( fTrinocular ) {
+	  std::vector<int> imgbadwires0;
+	  std::vector<int> imgbadwires1;
+	  badwires[0]->inferBadWireList( *(root2datum[kCosmic]->p_plane0), 
+					 sqrt(root2datum[kCosmic]->p_plane0->size()), 
+					 sqrt(root2datum[kCosmic]->p_plane0->size()), imgbadwires0 );
+	  badwires[1]->inferBadWireList( *(root2datum[kCosmic]->p_plane1), 
+					 sqrt(root2datum[kCosmic]->p_plane1->size()), 
+					 sqrt(root2datum[kCosmic]->p_plane1->size()), imgbadwires1 );
+	  badwires[0]->applyBadWires( *(root2datum[kNu]->p_plane0),
+				      sqrt(root2datum[kNu]->p_plane0->size()),
+				      sqrt(root2datum[kNu]->p_plane0->size()), imgbadwires0 );
+	  badwires[1]->applyBadWires( *(root2datum[kNu]->p_plane1), 
+				      sqrt(root2datum[kNu]->p_plane1->size()), 
+				      sqrt(root2datum[kNu]->p_plane1->size()), imgbadwires1 );
+	}
+	std::vector<int> imgbadwires2;
+	badwires[2]->inferBadWireList( *(root2datum[kCosmic]->p_plane2), 
+				       sqrt(root2datum[kCosmic]->p_plane2->size()), 
+				       sqrt(root2datum[kCosmic]->p_plane2->size()), imgbadwires2 );
+	badwires[2]->applyBadWires( *(root2datum[kNu]->p_plane2), 
+				    sqrt(root2datum[kNu]->p_plane2->size()), 
+				    sqrt(root2datum[kNu]->p_plane2->size()), imgbadwires2 );      
+      }
       root2datum[kNu]->overlayImage( *(root2datum[kCosmic]) );
-
+    }
+      
     // extract image into the datum
     root2datum[ftype]->fillDatum( datum );
 
@@ -272,16 +304,19 @@ int main( int narg, char** argv ) {
       //std::cout << "process " << entry << " images" << std::endl;
     }
     
-    if ( numfilled >=5 )
-      break;
+    // if ( numfilled >=20 )
+    //break;
 
     if ( ftype==kCosmic )
       std::cout << "Filled cosmic" << std::endl;
     else
       std::cout << "Filled neutrino" << std::endl;
 
-    entry[ftype]++;
-    classtrees[ftype]->GetEntry( entry[ftype] );      
+    for (int f=0; f<NTYPES; f++)  {
+      entry[f]++;
+      bytes[f] = classtrees[f]->GetEntry( entry[f] );
+    }
+
   }
   
   // last commit
