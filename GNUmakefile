@@ -70,41 +70,48 @@ caffe.pb.o:
 libconvertroot.so: $(COBJS)
 	$(CXX) $(LIBFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-.obj/root2lmdb.o: exesrc/root2lmdb.cc
-	$(CXX) $(CXXFLAGS) -c exesrc/root2lmdb.cc -o .obj/root2lmdb.o
+#.obj/root2lmdb.o: exesrc/root2lmdb.cc
+#	$(CXX) $(CXXFLAGS) -c exesrc/root2lmdb.cc -o .obj/root2lmdb.o
+#
+#bin/root2lmdb: .obj/root2lmdb.o libconvertroot.so
+#	@mkdir -p bin
+#	$(CXX) $(LDFLAGS) -o bin/root2lmdb $^ $(LDLIBS)
+#
+#.obj/bnb_root2lmdb.o: exesrc/bnb_root2lmdb.cc
+#	$(CXX) $(CXXFLAGS) -c exesrc/bnb_root2lmdb.cc -o .obj/bnb_root2lmdb.o
+#
+#bin/bnb_root2lmdb: .obj/bnb_root2lmdb.o libconvertroot.so
+#	@mkdir -p bin
+#	$(CXX) $(LDFLAGS) -o bin/bnb_root2lmdb $^ $(LDLIBS)
+#
+#.obj/data_root2lmdb.o: exesrc/data_root2lmdb.cc
+#	$(CXX) $(CXXFLAGS) -c exesrc/data_root2lmdb.cc -o .obj/data_root2lmdb.o
+#
+#bin/data_root2lmdb: .obj/data_root2lmdb.o libconvertroot.so
+#	@mkdir -p bin
+#	$(CXX) $(LDFLAGS) -o bin/data_root2lmdb $^ $(LDLIBS)
+#
+#.obj/lmdb2jpg.o: exesrc/lmdb2jpg.cc
+#	$(CXX) $(CXXFLAGS) -c $^ -o $@
+#
+#bin/lmdb2jpg: .obj/lmdb2jpg.o libconvertroot.so
+#	@mkdir -p bin
+#	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-bin/root2lmdb: .obj/root2lmdb.o libconvertroot.so
-	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o bin/root2lmdb $^ $(LDLIBS)
+#.obj/tridata_lmdb2jpg.o: exesrc/tridata_lmdb2jpg.cc
+#	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
-.obj/bnb_root2lmdb.o: exesrc/bnb_root2lmdb.cc
-	$(CXX) $(CXXFLAGS) -c exesrc/bnb_root2lmdb.cc -o .obj/bnb_root2lmdb.o
-
-bin/bnb_root2lmdb: .obj/bnb_root2lmdb.o libconvertroot.so
-	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o bin/bnb_root2lmdb $^ $(LDLIBS)
-
-.obj/data_root2lmdb.o: exesrc/data_root2lmdb.cc
-	$(CXX) $(CXXFLAGS) -c exesrc/data_root2lmdb.cc -o .obj/data_root2lmdb.o
-
-bin/data_root2lmdb: .obj/data_root2lmdb.o libconvertroot.so
-	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o bin/data_root2lmdb $^ $(LDLIBS)
-
-.obj/lmdb2jpg.o: exesrc/lmdb2jpg.cc
-	$(CXX) $(CXXFLAGS) -c $^ -o $@
-
-bin/lmdb2jpg: .obj/lmdb2jpg.o libconvertroot.so
-	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
-
-.obj/tridata_lmdb2jpg.o: exesrc/tridata_lmdb2jpg.cc
-	$(CXX) $(CXXFLAGS) -c $^ -o $@
-
-bin/tridata_lmdb2jpg: .obj/tridata_lmdb2jpg.o libconvertroot.so
-	@mkdir -p bin
-	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+#bin/tridata_lmdb2jpg: .obj/tridata_lmdb2jpg.o libconvertroot.so
+#	@mkdir -p bin
+#	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 #	install_name_tool -change libcaffe.so.1.0.0-rc3 $(CAFFE_LIBDIR)/libcaffe.so.1.0.0-rc3 $@
 
+.obj/%.o: exesrc/%.cc
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
+
+bin/%: .obj/%.o libconvertroot.so
+	@mkdir -p bin
+	$(CXX) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
 clean:
-	@rm bin/* .obj/* src/caffe.pb.cc include/caffe.pb.h
+	@rm bin/* .obj/*

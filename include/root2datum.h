@@ -18,26 +18,32 @@ namespace larbys {
   namespace util {
 
     class Root2Datum {
+      
+      friend Root2Datum;
 
     public:
       // config parameters
       typedef enum { kCollectionOnly, kTrinocular } NumPlanes_t;
       typedef enum { kGreyScale, kFalseColor } ColorOption_t;
 
-      Root2Datum( TChain* tree_ptr, NumPlanes_t opt_planes, ColorOption_t opt_color );
+      Root2Datum( TChain* tree_ptr, NumPlanes_t opt_planes, ColorOption_t opt_color, bool wPMT=false );
       virtual ~Root2Datum() {};
       
       void fillDatum( caffe::Datum& datum, long entry=-1 ); ///< fill a datum instance. if entry is specified, first set the Tree entry
+      void overlayImage( const Root2Datum& source );
 
     protected:
       
       NumPlanes_t fOptPlanes;
       ColorOption_t fOptColors;
+      bool fWithPMT;
       
       TChain* p_tree;
       std::vector<int>* p_plane0;
       std::vector<int>* p_plane1;
       std::vector<int>* p_plane2;
+      std::vector<int>* p_pmt_highgain;
+      std::vector<int>* p_pmt_lowgain;
 
     public:
 

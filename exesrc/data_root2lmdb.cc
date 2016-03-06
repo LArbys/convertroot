@@ -72,7 +72,7 @@ int main( int narg, char** argv ) {
   bool kTrinocular = false; // fold in all three views into data
   NuImageType_t fNuImageType = kEventImage;
   std::string producer = "bnbcosmics";
-
+  bool fAddPMT = false;
 
   // read input files
   std::vector< std::string > inputlist;
@@ -99,7 +99,7 @@ int main( int narg, char** argv ) {
   tree->SetBranchAddress( "event", &event );
 
   std::cout << "Setup Converter...";
-  larbys::util::Root2Datum root2datum( tree, larbys::util::Root2Datum::kTrinocular, larbys::util::Root2Datum::kGreyScale );
+  larbys::util::Root2Datum root2datum( tree, larbys::util::Root2Datum::kTrinocular, larbys::util::Root2Datum::kGreyScale, fAddPMT );
   root2datum.colorscale.setADC_MIN( 0.0 );
   root2datum.colorscale.setADC_MAX( 255.0 );
   

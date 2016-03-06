@@ -20,6 +20,10 @@ int main( int nargs, char** argv ) {
   std::string input_lmdb = argv[1];
   std::string output_folder = argv[2];
   int nprocess = atoi(argv[3]);
+  std::string bbannotationfile = "__none__";
+  if (nargs==5) {
+    bbannotationfile = argv[4];
+  }
 
   std::string FLAGS_backend = "lmdb";
   bool write_images = true;
@@ -28,6 +32,12 @@ int main( int nargs, char** argv ) {
   boost::scoped_ptr<caffe::db::DB> db(caffe::db::GetDB(FLAGS_backend));
   db->Open( input_lmdb.c_str(), caffe::db::READ );
   boost::scoped_ptr<caffe::db::Cursor> cursor(db->NewCursor());
+
+  std::ifstream bboxes( bbannotationfile.c_str() );
+  cv::Scalar r(255,0,0);
+  cv::Scalar g(0,0,255);
+  cv::Scalar b(0,255,0);
+  cv::Scalar color[3] = { r, g, b};
   
   // Image protobuf
   caffe::Datum datum;
@@ -47,6 +57,37 @@ int main( int nargs, char** argv ) {
     //   continue;
     // }
 
+    // look for bounding boxes annotation
+    std::vector< std::vector<int> > truth_bboxes;
+    if ( bbannotationfile!="__none__" ) {
+      bool found = false;
+      while ( !bboxes.eof() && !found ) {
+	char buffer[1024];
+	char buflabel[10];
+	bboxes >> buffer >> buflabel;
+	std::string bbox_key = buffer;
+	if ( std::atoi(buflabel)==1 ) {
+	  // if has truth boxes
+	  // loop with same keys
+	  std::vector<int> box;
+	  for ( int i=0; i<12; i++) {
+	    bboxes >> buffer;
+	    box.push_back( std::atoi( buffer ) );
+	  }
+	  bboxes >> buffer; // string label which we don't use for now
+	  if ( bbox_key==std::string( cursor->key() ) ) {
+	    truth_bboxes.push_back( box );
+	    found = true;
+	  }
+	}//else if cosmics
+	else {
+	  if ( bbox_key==std::string( cursor->key() ) )
+	    found = true;
+	}
+      }//annotation file loop
+      std::cout << "found " << truth_bboxes.size() << " boxes for image with key=" << cursor->key() << std::endl;
+    }//if annotation file provided
+    
     cv::Mat img = convertor.datum2image( datum, is_color );
 
     // make the filename: replace all instances of / and . with _
@@ -58,8 +99,15 @@ int main( int nargs, char** argv ) {
     }
     std::string outpath = output_folder + "/" + fname + ".JPEG";
 
-    if ( write_images )
-      cv::imwrite( outpath, img );
+    if ( truth_bboxes.size()>0 ) {
+      for ( auto &bbox : truth_bboxes ) {
+	for (int p=0; p<3; p++) {
+	  cv::rectangle( img, cv::Point( bbox.at(4*p+1), bbox.at(4*p+0) ), cv::Point( bbox.at(4*p+3), bbox.at(4*p+2) ), color[p] );
+	}
+      }
+    }
+
+    cv::imwrite( outpath, img );
 
     cursor->Next();
     nimages++;
