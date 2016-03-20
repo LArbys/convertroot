@@ -32,6 +32,7 @@
 #include "root2datum.h"
 #include "emptyfilter.h"
 #include "BNBLabels.h"
+#include "datum2img.h"
 
 // ROOT
 #include "TFile.h"
@@ -73,6 +74,7 @@ int main( int narg, char** argv ) {
   NuImageType_t fNuImageType = kEventImage;
   std::string producer = "bnbcosmics";
   bool fAddPMT = false;
+  int resize_factor = 1;
 
   // read input files
   std::vector< std::string > inputlist;
@@ -102,7 +104,9 @@ int main( int narg, char** argv ) {
   larbys::util::Root2Datum root2datum( tree, larbys::util::Root2Datum::kTrinocular, larbys::util::Root2Datum::kGreyScale, fAddPMT );
   root2datum.colorscale.setADC_MIN( 0.0 );
   root2datum.colorscale.setADC_MAX( 255.0 );
-  
+  root2datum.convertor.setTimePadding( 10 );
+  root2datum.convertor.setWirePadding( 0 );
+  larbys::util::Datum2Image datum2img;
 
   int nentries = tree->GetEntries();
   std::cout << "done." << std::endl;
@@ -142,9 +146,37 @@ int main( int narg, char** argv ) {
     root2datum.fillDatum( datum );
     datum.set_label( (int)bnblabel );
 
-    // serialize
     std::string out;
-    CHECK( datum.SerializeToString(&out) );
+    if (resize_factor>1 ) {
+      // resize image
+      cv::Mat input_img = datum2img.datum2image( datum, true );
+      int newheight = datum.height()/resize_factor;
+      int newwidth = datum.width()/resize_factor;
+      cv::Mat output_img( newheight, newwidth, CV_8UC3 );
+      for (int c=0; c<3; c++) {
+	for (int h=0; h<newheight; h++) {
+	  for (int w=0; w<newwidth; w++) {
+	    unsigned int maxval = 0;
+	    for (int h2=0; h2<resize_factor; h2++) {
+	      for (int w2=0; w2<resize_factor; w2++) {
+		if ( maxval < input_img.at<cv::Vec3b>( cv::Point(h*resize_factor+h2,w*resize_factor+w2 ) )[c] )
+		  maxval = input_img.at<cv::Vec3b>( cv::Point(h*resize_factor +h2,w*resize_factor+w2 ) )[c];
+	      }
+	    }
+	    output_img.at<cv::Vec3b>( cv::Point(h,w) )[c] = maxval;// weird, had to reverse it
+	  }
+	}
+      }//end of channel loop
+      caffe::Datum output_datum;
+      caffe::CVMatToDatum( output_img, &output_datum );
+      output_datum.set_label( datum.label() );
+      output_datum.set_encoded(false);
+      CHECK( output_datum.SerializeToString(&out) );
+    }
+    else {
+      // serialize
+      CHECK( datum.SerializeToString(&out) );
+    }
       
     // make key for db entry
     std::string key_str = caffe::format_int(run,5) + "_" + caffe::format_int(subrun,5) + "_" + caffe::format_int(event,5) + caffe::format_int( (int)bnblabel, 2  );

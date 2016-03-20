@@ -34,9 +34,9 @@ int main( int nargs, char** argv ) {
   boost::scoped_ptr<caffe::db::Cursor> cursor(db->NewCursor());
 
   std::ifstream bboxes( bbannotationfile.c_str() );
-  cv::Scalar r(255,0,0);
-  cv::Scalar g(0,255,0);
-  cv::Scalar b(0,0,255);
+  cv::Scalar r(100,0,0);
+  cv::Scalar g(0,100,0);
+  cv::Scalar b(0,0,100);
   cv::Scalar color[3] = { r, g, b};
   
   // Image protobuf
@@ -49,6 +49,14 @@ int main( int nargs, char** argv ) {
   int nimages = 0;
   while ( cursor->valid() ) {
 
+    // if ( cursor->key()!="05001_00034_0173600" ) {
+    //   cursor->Next();
+    //   continue;
+    // }
+    // else {
+    //   std::cout << "Found image" << std::endl;
+    // }
+
     datum.ParseFromString( cursor->value() );
     std::cout << "[ label " << datum.label() << " ] key=" << cursor->key() << " " << datum.height() << " x " << datum.width() << " x " << datum.channels() << std::endl;
     
@@ -57,6 +65,7 @@ int main( int nargs, char** argv ) {
     //   continue;
     // }
 
+    
     // look for bounding boxes annotation
     std::vector< std::vector<int> > truth_bboxes;
     if ( bbannotationfile!="__none__" ) {
@@ -97,7 +106,7 @@ int main( int nargs, char** argv ) {
       fname = fname.substr( 0, loc ) + "_" + fname.substr(loc+1,std::string::npos );
       loc = fname.find_first_of("/.");
     }
-    std::string outpath = output_folder + "/" + fname + ".JPEG";
+    std::string outpath = output_folder + "/" + fname + ".PNG";
 
     if ( truth_bboxes.size()>0 ) {
       for ( auto &bbox : truth_bboxes ) {

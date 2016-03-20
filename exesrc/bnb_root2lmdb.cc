@@ -240,14 +240,22 @@ int main( int narg, char** argv ) {
 	    (*p_plane2).at(i) += (*p_bb_img_plane2[kCosmic]).at(i);
 	  }
 	}
-	convertor.vec2image( cv_img, *p_plane0, *p_plane1, *p_plane2, height, width ); // collection plane
+	std::vector< std::vector<int>* > planes(3,0);
+	planes[0] = p_plane0;
+	planes[1] = p_plane1;
+	planes[2] = p_plane2;
+	std::vector< std::vector<int>* > pmt_vect;
+	convertor.vec2image( cv_img, planes, pmt_vect, height, width, 0, 0, false, false ); // 3 planes, greyscale, no pmt
       }
       else {
 	if ( fOverlay && ftype==kNu ) { //neutrino, we need to overlay the cosmic first before making the image
 	  for (int i=0; i<(*p_plane2).size(); i++)
 	    (*p_plane2).at(i) += (*p_bb_img_plane2[kCosmic]).at(i);
 	}
-	convertor.vec2image( cv_img, *p_plane2, height, width ); // collection plane
+	std::vector< std::vector<int>* > planes(1,0);
+	std::vector< std::vector<int>* > pmt_vect;
+	planes[0] = p_plane2;
+	convertor.vec2image( cv_img, planes, pmt_vect, height, width, 0, 0, false, false ); // 1 plane, greyscale, no pmt
       }
 
       if ( cv_img.data ) {

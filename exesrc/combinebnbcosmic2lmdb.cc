@@ -15,7 +15,6 @@
 // Caffe and LMDB
 #include "lmdb.h"
 #include "caffe/common.hpp"
-//#include "caffe.pb.h" // datum definition
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/format.hpp"
 #include "caffe/util/db.hpp"
@@ -167,9 +166,9 @@ int main( int narg, char** argv ) {
 
   // bad wire tool
   larbys::util::UBBadWires* badwires[fNumPlanes];
-  badwires[0] = new larbys::util::UBBadWires( 0.001 );
-  badwires[1] = new larbys::util::UBBadWires( 0.001 );
-  badwires[2] = new larbys::util::UBBadWires( 0.001 );
+  badwires[0] = new larbys::util::UBBadWires( 0.01 );
+  badwires[1] = new larbys::util::UBBadWires( 0.01 );
+  badwires[2] = new larbys::util::UBBadWires( 0.01 );
 
   // Image Protobuf
   caffe::Datum datum;
@@ -207,9 +206,9 @@ int main( int narg, char** argv ) {
 
     // tell people what we're doing
     if ( ftype==kCosmic )
-      std::cout << "Make a cosmic event (using " << entry[kCosmic] << ")" << std::endl;
+      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmic] << ")" << std::endl;
     else
-      std::cout << "Make a neutrino " << bnblabel << " event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmic] << ")" << std::endl;	
+      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmic] << ")" << std::endl;	
 
     // if we are filling a neutrino, we need to make sure the next event actually has one
     // and that the neutrino isn't some low energy event
@@ -268,6 +267,9 @@ int main( int narg, char** argv ) {
       
     // extract image into the datum
     root2datum[ftype]->fillDatum( datum );
+
+    // set the label!!
+    datum.set_label( (int)bnblabel );
 
     // serialize
     std::string out;

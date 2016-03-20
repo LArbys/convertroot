@@ -177,7 +177,10 @@ int main( int narg, char** argv ) {
     int height = sqrt( p_bb_img_plane2[ fill_index ]->size() );
     int width = height;
     cv::Mat cv_img;
-    convertor.vec2image( cv_img, *(p_bb_img_plane2[fill_index]), height, width );
+    std::vector< std::vector<int>* > tpc_vecs;
+    std::vector< std::vector<int>* > pmt_vecs;
+    tpc_vecs.push_back( p_bb_img_plane2[fill_index] );
+    convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, 0, 0, false, false );
     if ( cv_img.data && passes ) {
       if ( enc.size() ) {
 	// encode the values

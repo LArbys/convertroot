@@ -1,5 +1,6 @@
 #include "root2datum.h"
 #include "assert.h"
+#include <iostream>
 
 // OpenCV
 #include "opencv/cv.h"
@@ -45,23 +46,28 @@ namespace larbys {
 
       bool rgb=true;
       if ( fOptColors==kGreyScale ) rgb = false;
+      bool wpmt=false;
+      if ( fWithPMT ) wpmt = true;
       
       cv::Mat cv_img;
       int height = sqrt( p_plane2->size() ); // hmm, this should be tree variables
       int width = height; /// hmm, this should be tree variables
-      if ( !fWithPMT ) {
-	if ( fOptPlanes==kTrinocular )
-	  convertor.vec2image( cv_img, *p_plane0, *p_plane1, *p_plane2, height, width, rgb );
-	else
-	  convertor.vec2image( cv_img, *p_plane2, height, width, rgb );
+
+      std::vector< std::vector<int>* > tpc_vecs;
+      if ( fOptPlanes==kTrinocular ) {
+	tpc_vecs.push_back( p_plane0 );
+	tpc_vecs.push_back( p_plane1 );
+	tpc_vecs.push_back( p_plane2 );
       }
       else {
-	// with pmt
-	if ( fOptPlanes==kTrinocular )
-	  convertor.vec2imageWpmt( cv_img, *p_plane0, *p_plane1, *p_plane2, *p_pmt_highgain, height, width, rgb );
-	else
-	  convertor.vec2imageWpmt( cv_img, *p_plane2, *p_pmt_highgain, height, width, rgb );
+	tpc_vecs.push_back( p_plane2 );
       }
+
+      std::vector< std::vector<int>* > pmt_vecs;
+      if ( fWithPMT )
+	pmt_vecs.push_back( p_pmt_highgain );
+
+      convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, width, rgb, wpmt );
       caffe::CVMatToDatum( cv_img, &datum );
 
     }

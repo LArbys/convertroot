@@ -17,7 +17,8 @@ namespace larbys {
 	for (int w=0; w<width; w++) {
 	  for (int c=0; c<nchannels; c++) {
 	    int index = (c*height + h)*width + w;
-	    img.at<cv::Vec3b>( cv::Point(h,w) )[c] = static_cast<unsigned short>( vec_data.at(index) );
+	    img.at<cv::Vec3b>( cv::Point(w,h) )[c] = static_cast<unsigned short>( vec_data.at(index) );
+	    //std::cout << "(" << h << "," << w << "," << c << ") " << static_cast<unsigned short>( vec_data.at(index) ) << std::endl;
 	  }
 	}
       }

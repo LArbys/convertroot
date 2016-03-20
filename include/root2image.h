@@ -18,25 +18,32 @@ namespace larbys {
 
     public:
 
+      typedef enum { kNotDefined=-1, kGreyScale, kGreyScalewPMT, kRGB, kRGBwPMT } ImageData_t;
+
       Root2Image() {
 	// we set the PMT color scale
 	pmt_colorscale.setBaseline( 0.0 );
 	pmt_colorscale.setADC_MIP( 1024.0 );
 	pmt_colorscale.setADC_MIN( -40.0 );
 	pmt_colorscale.setADC_MAX( 2048.0 );
+	setTimePadding(0);
+	setWirePadding(0);
       };
       virtual ~Root2Image() {};
 
       ADC2RGB colorscale;
       ADC2RGB pmt_colorscale;
+      int fTimePad;
+      int fWirePad;
+      void setTimePadding( int pad ) { fTimePad = pad; };
+      void setWirePadding( int pad ) { fWirePad = pad; };
 
-      void vec2image( cv::Mat& mat, const std::vector<int>& img, const int height, const int width, bool rgb=true );
-      void vec2image( cv::Mat& mat, const std::vector<int>& img0, const std::vector<int>& img1, const std::vector<int>& img2, 
-		      const int height, const int width, bool rgb=true );
-      void vec2imageWpmt( cv::Mat& mat, const std::vector<int>& img, const std::vector<int>& pmtimg, const int height, const int width, bool rgb=true );
-      void vec2imageWpmt( cv::Mat& mat, const std::vector<int>& img0, const std::vector<int>& img1, const std::vector<int>& img2, const std::vector<int>& pmtimg,
-			  const int height, const int width, bool rgb=true );
-			 
+      void vec2image( cv::Mat& mat, 
+		      const std::vector< std::vector<int>* >& tpc_plane_images, 
+		      const std::vector< std::vector<int>* >& pmt_images,
+		      int tpc_height, int tpc_width,
+		      int pmt_height, int pmt_width, bool rgb, bool wpmt );
+		      
       
 
     };
