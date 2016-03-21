@@ -58,7 +58,7 @@ int main( int nargs, char** argv ) {
     // }
 
     datum.ParseFromString( cursor->value() );
-    std::cout << "[ label " << datum.label() << " ] key=" << cursor->key() << " " << datum.height() << " x " << datum.width() << " x " << datum.channels() << std::endl;
+    std::cout << "[ label " << datum.label() << "] key=" << cursor->key() << " " << datum.width() << " x " << datum.height() << " x " << datum.channels() << std::endl;
     
     // if ( datum.label()==0 || datum.label()>3 ) {
     //   cursor->Next();

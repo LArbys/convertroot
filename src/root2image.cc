@@ -67,7 +67,7 @@ namespace larbys {
 	      for (int i=0; i<3; i++) {
 		switch( nchannels ) {
 		case 1:
-		  mat.at< cv::Vec<uchar,1> >(cv::Point(w+fWirePad,h+fTimePad))[ iplane*channels_per_tpc_plane + i ] = bgr[i]*255;
+		  mat.at< cv::Vec<uchar,1> >(cv::Point(h+fTimePad,w+fWirePad))[ iplane*channels_per_tpc_plane + i ] = bgr[i]*255;
 		  break;
 		case 3:
 		  mat.at< cv::Vec<uchar,3> >(cv::Point(w+fWirePad,h+fTimePad))[ iplane*channels_per_tpc_plane + i ] = bgr[i]*255;
