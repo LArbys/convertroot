@@ -29,6 +29,7 @@ namespace larbys {
 
       // Set size of image set
       mat.create( eff_height, eff_width, CV_8UC(nchannels) );
+      mat = cv::Mat::zeros( eff_height, eff_width, CV_8UC(nchannels) );
 
       std::cout << "root2image: nchannels=" << nchannels 
       		<< " ntpcvecs=" << nplanes
@@ -49,13 +50,19 @@ namespace larbys {
 	  vec = pmt_images.at( iplane-nplanes );
 	  height = pmt_height;
 	  width  = pmt_width;
+	  if ( fPMTformat==kTPCtimescale )
+	    continue; // if fancy overlay mode, we skip the PMT portion for now. we do this later
 	}
 
 	for (int h=0; h<height; h++) {
 	  for (int w=0; w<width; w++) {
 
 	    // get pixel value
-	    float val = (float)(vec->at( (w)*height + (h) )-BASELINE);
+	    float val;
+	    if ( iplane<nplanes )
+	      val = (float)(vec->at( (w)*height + (h) )-BASELINE); // tpc
+	    else
+	      val = (float)(vec->at( (h)*width + (width-1-w) )-BASELINE);  // pmt
 	    
 	    if ( iplane<nplanes && rgb ) {
 	      // apply rgb scale to tpc planes
@@ -128,8 +135,96 @@ namespace larbys {
 	  }//end of width loop
 	}//end of height loop
       }//end of plane loop
+
+      // 
+      if ( fPMTformat==kTPCtimescale ) {
+	for (int ipmtplane=0; ipmtplane<pmtchannels; ipmtplane++ ) {
+	  int index = nplanes*channels_per_tpc_plane+(ipmtplane);
+	  fillPMTImage( mat, *(tpc_plane_images.at(ipmtplane)), index, nchannels, pmt_height, pmt_width );
+	}
+      }
       
     }//end of general vec2image setup
 
+    void Root2Image::pmtpos2pixel( const std::vector<float>& pos, int& wirepix, int& timepix, int tlen, int wlen,  int rowsperpmt ) {
+      // we sum the pe in the trigger window between 50 and 150, dividing sum into 3 bins
+      // then we artifically past it into an overlay of the TPC image
+
+      int ncollectionwires = 3456;
+      int nblocks = (ncollectionwires/wlen);
+      if ( ncollectionwires%wlen!=0 )
+	nblocks+=1;
+      int wirewidth = nblocks*wlen;
+      float wirescale = float(ncollectionwires)/float(wirewidth); // wires per pixel
+      int endpixel = float(wirescale) * float(wlen);
+
+      float z = 1000.0 - pos.at(2);
+      float y = pos.at(1);
+      int t0pix = (int)(fTtrig_TimePix-fTstart_TimePix)*(tlen/fTimeOrigScale); // position in our image when the pmts fire
+
+      int yrow = 0;
+      if ( y>50 )
+	yrow = rowsperpmt*4;
+      else if (y<50 && y>20 )
+	yrow = rowsperpmt*3;
+      else if ( y<20 && y>-20 )
+	yrow = rowsperpmt*2;
+      else if ( y<-20 && y>-50 )
+	yrow = rowsperpmt*1;
+      else
+	yrow = rowsperpmt*0;
+    
+      timepix = t0pix+yrow;
+      wirepix = z*(endpixel/1000.0);
+      
+    }
+    
+    void Root2Image::fillPMTImage( cv::Mat& mat, const std::vector<int>& pmtvec, int fillchannel, int nchannels, int pmt_height, int pmt_width ) {
+
+      int chanblock = (int)pmt_width/32;
+      int tickblock = (int)(1500/pmt_height);
+      int rowsperpmt = 5;
+
+      int winstart = 2.90/(tickblock*15.625e-3);
+      int winend   = 4.85/(tickblock*15.625e-3);
+      int winbin = (winend-winstart)/rowsperpmt;
+      std::cout << "fill pmt with pe integral between " << winstart << " and " << winend << " binsize=" << winbin << std::endl;
+
+      for ( int chan=0; chan<32; chan++ ) {
+	float pmtbinsum = 0;
+	int tpix, wire;
+	std::vector<float> pmtpos;
+	fpmtposmap.getPMTPos( chan, pmtpos );
+	pmtpos2pixel( pmtpos, wire, tpix, pmt_height, pmt_width, rowsperpmt );
+	for (int ibin=0; ibin<rowsperpmt; ibin++) {
+	  for (int t=winstart+ibin*winbin; t<winstart+(ibin+1)*winbin; t++) {
+	    if ( t>= pmt_height )
+	      break;
+	    int idx = pmt_width*(t) + ((float(chan)+0.5)*chanblock);
+	    pmtbinsum += pmtvec.at( idx );
+	  }
+
+	  float gsval = pmt_colorscale.getGreyscale( pmtbinsum );
+	  int gs = std::min( (int)255, (int)(255*gsval) );
+
+	  for (int w=-10; w<=10; w++) {
+	    switch( nchannels ) {
+	    case 4:
+	      mat.at< cv::Vec<uchar,4> >(cv::Point(w+wire+fWirePad,tpix+ibin+fTimePad))[ fillchannel ] = gs;
+	      break;
+	    case 10:
+	      mat.at< cv::Vec<uchar,10> >(cv::Point(w+wire+fWirePad,tpix+ibin+fTimePad))[ fillchannel ] = gs;
+	      break;
+	    default:
+	      std::cout << "root2image: unsupported number of channels=" << nchannels << std::endl;
+	      assert(false);
+	      break;
+	    }//end of switch
+	  }
+	}
+      }
+    }
+    
+    
   }
 }

@@ -67,20 +67,22 @@ namespace larbys {
       if ( fWithPMT )
 	pmt_vecs.push_back( p_pmt_highgain );
 
+      
       convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, width, rgb, wpmt );
       caffe::CVMatToDatum( cv_img, &datum );
 
     }
 
-    void Root2Datum::overlayImage( const Root2Datum& source ) {
+    void Root2Datum::overlayImage( const Root2Datum& source, float scale_factor ) {
       std::vector<int>* my_branches[5] = { p_plane2, p_plane0, p_plane1, p_pmt_lowgain, p_pmt_highgain };
       std::vector<int>* their_branches[5] = { source.p_plane2, source.p_plane0, source.p_plane1, source.p_pmt_lowgain, source.p_pmt_highgain };
       for (int b=0; b<5; b++) {
 	if ( my_branches[b]!=NULL && their_branches[b]!=NULL) {
 	  if ( my_branches[b]->size()!=their_branches[b]->size() )
-	    std::cout << "image size mismatch! " << my_branches[b]->size() << " vs. " << their_branches[b]->size() << std::endl;
+	    std::cout << "image size mismatch! " << my_branches[b]->size() << " (" << sqrt( my_branches[b]->size() ) << ")"
+		      << " vs. " << their_branches[b]->size() << " (" << sqrt(their_branches[b]->size()) << ")" << std::endl;
 	  for (int i=0; i<(int)my_branches[b]->size(); i++)
-	    my_branches[b]->at(i) += their_branches[b]->at(i);
+	    my_branches[b]->at(i) += their_branches[b]->at(i)*scale_factor;
 	}
       }
     }

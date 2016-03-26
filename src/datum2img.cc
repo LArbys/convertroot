@@ -1,24 +1,59 @@
 #include "datum2img.h"
 #include <iostream>
+#include <assert.h>
 
 namespace larbys {
   namespace util {
-    cv::Mat Datum2Image::datum2image( caffe::Datum& datum, bool is_color ) {
+    cv::Mat Datum2Image::datum2image( caffe::Datum& datum, bool is_color, bool has_pmt ) {
       if ( datum.encoded() )
 	caffe::DecodeDatum( &datum, is_color );
 
       cv::Mat img( datum.height(), datum.width(), CV_8UC3 );
+      img = cv::Mat::zeros( datum.height(), datum.width(), CV_8UC3 );
       const std::string& data = datum.data();
       std::vector<char> vec_data( data.c_str(), data.c_str()+data.size());
       int height = datum.height();
       int width = datum.width();
       int nchannels = datum.channels();
+      if ( nchannels!=3 && nchannels!=4 ) {
+	std::cout << "UNSUPPORTED NCHANNELS" << std::endl;
+	assert(false);
+      }
+      // tpc layers
       for (int h=0; h<height; h++) {
 	for (int w=0; w<width; w++) {
-	  for (int c=0; c<nchannels; c++) {
+	  for (int c=0; c<3; c++) {
 	    int index = (c*height + h)*width + w;
-	    img.at<cv::Vec3b>( cv::Point(w,h) )[c] = static_cast<unsigned short>( vec_data.at(index) );
+	    unsigned int val = static_cast<unsigned short>( vec_data.at(index) );
+	    if ( fAugment ) {
+	      // brighten the track
+	      if ( c!=0 )
+		val  *= 4;
+	      else {
+		if ( val>20 )
+		  val *= 8;
+	      }
+	    }
+	    if ( val>=255) val = 255;
+	    img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short)val;
 	    //std::cout << "(" << h << "," << w << "," << c << ") " << static_cast<unsigned short>( vec_data.at(index) ) << std::endl;
+	  }
+	}
+      }
+      if ( has_pmt ) {
+	for (int h=0; h<height; h++) {
+	  for (int w=0; w<width; w++) {
+	    //int pmtval = (int)img.at<cv::Vec3b>( cv::Point(w,h) )[3]; // pmt value
+	    int pmtval = (int)static_cast<unsigned short>( vec_data.at((3*height+h)*width+w) );
+	    if ( fAugment ) pmtval *= 1;
+	    if ( pmtval>=128  ) pmtval = 128;
+	    for (int c=0; c<3; c++) {
+	      int index = (c*height + h)*width + w;
+	      int chval = (int)img.at<cv::Vec3b>( cv::Point(w,h) )[c]+pmtval;
+	      
+	      if ( chval>=255 ) chval = 255;
+	      img.at<cv::Vec3b>( cv::Point(w,h) )[c] = chval;
+	    }
 	  }
 	}
       }

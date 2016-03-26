@@ -73,7 +73,7 @@ int main( int narg, char** argv ) {
   bool kTrinocular = false; // fold in all three views into data
   NuImageType_t fNuImageType = kEventImage;
   std::string producer = "bnbcosmics";
-  bool fAddPMT = false;
+  bool fAddPMT = true;
   int resize_factor = 1;
 
   // read input files
@@ -106,6 +106,9 @@ int main( int narg, char** argv ) {
   root2datum.colorscale.setADC_MAX( 255.0 );
   root2datum.convertor.setTimePadding( 10 );
   root2datum.convertor.setWirePadding( 0 );
+  root2datum.convertor.pmt_colorscale.setADC_MIN( 0.0 );
+  root2datum.convertor.pmt_colorscale.setADC_MAX( 1048.0 );
+  root2datum.convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
   larbys::util::Datum2Image datum2img;
 
   int nentries = tree->GetEntries();
@@ -190,8 +193,8 @@ int main( int narg, char** argv ) {
       txn.reset( db->NewTransaction() );
     }
     
-    // if ( numfilled>=10)
-    //   break;
+    if ( numfilled>=50)
+      break;
     
     if ( entry%10==0 )
       std::cout << "Entry " << entry << std::endl;

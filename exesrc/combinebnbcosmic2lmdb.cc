@@ -62,18 +62,22 @@ int main( int narg, char** argv ) {
 
   std::string infile_neutrino = argv[1];
   std::string infile_cosmics = argv[2];
-  std::string outdb = argv[3];
-  std::string outbblist = "out.txt";
+  std::string outdb_train = argv[3];
+  std::string outdb_test  = argv[4];
+  std::string outbblist_train = "bbox_out_train.txt";
+  std::string outbblist_test  = "bbox_out_test.txt";
   std::string enc = "";
   int SEED = 123567;
   bool fTrinocular = true; // fold in all three views into data
-  bool fAddPMT = false;
+  bool fAddPMT = true;
   std::string producer = "bnbcosmics";
   const int fNumPlanes = 3;
-  double fEnergyCut = -1;
+  double fEnergyCut = 0.400;
   bool fApplyBadWireMask = true;
+  float train_val_split = 0.7;
 
   typedef enum { kNu=0, kCosmic, NTYPES } FileTypes_t;
+  typedef enum { kTRAIN=0, kTEST, NOUTPUTS } Outputs_t;
 
   larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kGreyScale;
   //larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kFalseColor;
@@ -102,12 +106,16 @@ int main( int narg, char** argv ) {
       root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kCollectionOnly, fColor, fAddPMT );
     root2datum[i]->colorscale.setADC_MIN(0);
     root2datum[i]->colorscale.setADC_MAX(255);
+    root2datum[i]->convertor.setTimePadding( 40 );
+    if ( fAddPMT )
+      root2datum[i].convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
   }
 
   // neutrino tree has MC variables
   int mode, nuscatter, flavor;
   float Enu;
   int nbboxes;
+  float bb_vertex[3];
   classtrees[kNu]->SetBranchAddress( "nbboxes", &nbboxes );
   classtrees[kNu]->SetBranchAddress( "mode", &mode );
   classtrees[kNu]->SetBranchAddress( "nuscatter", &nuscatter );
@@ -152,14 +160,19 @@ int main( int narg, char** argv ) {
 
   // Output LMDB
   std::string FLAGS_backend = "lmdb";
-  boost::scoped_ptr<caffe::db::DB> db(caffe::db::GetDB(FLAGS_backend));
-  db->Open(outdb.c_str(), caffe::db::NEW);
-  boost::scoped_ptr<caffe::db::Transaction> txn(db->NewTransaction());
+  boost::scoped_ptr<caffe::db::DB> db_train(caffe::db::GetDB(FLAGS_backend));
+  db_train->Open(outdb_train.c_str(), caffe::db::NEW);
+  boost::scoped_ptr<caffe::db::Transaction> txn_train(db_train->NewTransaction());
+
+  boost::scoped_ptr<caffe::db::DB> db_test(caffe::db::GetDB(FLAGS_backend));
+  db_test->Open(outdb_test.c_str(), caffe::db::NEW);
+  boost::scoped_ptr<caffe::db::Transaction> txn_test(db_test->NewTransaction());
 
   // Output annotation file
   // outputs per line
   // [key] [img-label] [bounding box] [bounding box type]
-  std::ofstream annotation( outbblist.c_str() );
+  std::ofstream annotation_train( outbblist_train.c_str() );
+  std::ofstream annotation_test(  outbblist_test.c_str() );
 
   // filter
   larbys::util::EmptyFilter filter( 10.0, 10.0/(448.0*448.0) );
@@ -197,18 +210,7 @@ int main( int narg, char** argv ) {
     if ( rand.Uniform()>0.5 )
       ftype = kCosmic;
 
-    // get the label
     larbys::util::BNBLabels_t bnblabel = larbys::util::kBackground; // default to background
-    if ( ftype==kNu ) {
-      //bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
-      bnblabel = larbys::util::kNumuCCQE; // this is label '1'.
-    }
-
-    // tell people what we're doing
-    if ( ftype==kCosmic )
-      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmic] << ")" << std::endl;
-    else
-      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmic] << ")" << std::endl;	
 
     // if we are filling a neutrino, we need to make sure the next event actually has one
     // and that the neutrino isn't some low energy event
@@ -224,16 +226,29 @@ int main( int narg, char** argv ) {
       //   passes_plane0 = filter.passesTotalFilter( *(p_plane1), 20*100 );
       // }
 
+      // get the neutrino label
+      bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
+      //bnblabel = larbys::util::kNumuCCQE; // this is label '1'.
+
       while ( bytes[kNu]>0 && ( nbboxes==0 || p_bblabels[kNu]->at(0)!="neutrino"
 				|| !passes_plane0 || !passes_plane1 || !passes_plane2
-				|| Enu<fEnergyCut ) ) {
+				|| Enu<fEnergyCut || bnblabel!=larbys::util::kNumuCCQE 
+				
+				) ) {
 	entry[kNu]++;
 	bytes[kNu] = classtrees[kNu]->GetEntry( entry[kNu] );
+	bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
       }
       if ( bytes[kNu]==0 ) // guess we ran out of neutrinos
 	break;
       
     }// end of find useable event
+
+    // tell the people what we're doing
+    if ( ftype==kCosmic )
+      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmic] << ")" << std::endl;
+    else
+      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmic] << ")" << std::endl;	
           
     // if neutrino, add in the cosmic (after first removing bad wires
     if ( ftype==kNu ) {
@@ -262,14 +277,17 @@ int main( int narg, char** argv ) {
 				    sqrt(root2datum[kNu]->p_plane2->size()), 
 				    sqrt(root2datum[kNu]->p_plane2->size()), imgbadwires2 );      
       }
-      root2datum[kNu]->overlayImage( *(root2datum[kCosmic]) );
+      root2datum[kCosmic]->overlayImage( *(root2datum[kNu]),  1.45 );
     }
       
     // extract image into the datum
-    root2datum[ftype]->fillDatum( datum );
+    root2datum[kCosmic]->fillDatum( datum ); // we either use cosmic or we add neutrino to cosmics (double noise?)
 
     // set the label!!
-    datum.set_label( (int)bnblabel );
+    if ( bnblabel==larbys::util::kBackground )
+      datum.set_label( 0 );
+    else
+      datum.set_label( 1 );
 
     // serialize
     std::string out;
@@ -279,35 +297,62 @@ int main( int narg, char** argv ) {
     int numfilled = filled[kNu]+filled[kCosmic];
     std::string key_str = caffe::format_int(numfilled,10) + "_" + caffe::format_int( (int)bnblabel, 2  );
     
-    // store in db
-    txn->Put( key_str, out );
+    // determine output stream
+    Outputs_t outstream;
+    if ( rand.Uniform()<train_val_split ) {
+      // store in db
+      txn_train->Put( key_str, out );
+      outstream = kTRAIN;
+    }
+    else {
+      txn_test->Put( key_str, out );
+      outstream = kTEST;
+    }
     filled[ftype]++;
 
     // output annotation line
     if ( ftype==kCosmic ) {
-      annotation << key_str << " " << (int)bnblabel << std::endl;
+      if ( outstream==kTRAIN )
+	annotation_train << key_str << " " << (int)bnblabel << std::endl;
+      else
+	annotation_test << key_str << " " << (int)bnblabel << std::endl;
     }
     else {
-      annotation << key_str << " " << (int)bnblabel << " ";
+      if ( outstream==kTRAIN )
+	annotation_train << key_str << " " << (int)bnblabel << " ";
+      else
+	annotation_test << key_str << " " << (int)bnblabel << " ";
       for (int ibox=0; ibox<nbboxes; ibox++) {
 	for (int iplane=0; iplane<fNumPlanes; iplane++) {
-	  annotation << p_LoLeft_t_plane[kNu][iplane]->at(ibox) << " " 
-		     << p_LoLeft_w_plane[kNu][iplane]->at(ibox) << " "
-		     << p_HiRight_t_plane[kNu][iplane]->at(ibox) << " "
-		     << p_HiRight_w_plane[kNu][iplane]->at(ibox) << " ";
+	  if ( outstream==kTRAIN )
+	    annotation_train << p_LoLeft_t_plane[kNu][iplane]->at(ibox) << " " 
+			     << p_LoLeft_w_plane[kNu][iplane]->at(ibox) << " "
+			     << p_HiRight_t_plane[kNu][iplane]->at(ibox) << " "
+			     << p_HiRight_w_plane[kNu][iplane]->at(ibox) << " ";
+	  else
+	    annotation_test << p_LoLeft_t_plane[kNu][iplane]->at(ibox) << " " 
+			    << p_LoLeft_w_plane[kNu][iplane]->at(ibox) << " "
+			    << p_HiRight_t_plane[kNu][iplane]->at(ibox) << " "
+			    << p_HiRight_w_plane[kNu][iplane]->at(ibox) << " ";
+	    
 	}
-	annotation << " " << p_bblabels[ftype]->at(ibox) << std::endl;
+	if ( outstream==kTRAIN )
+	  annotation_train << " " << p_bblabels[ftype]->at(ibox) << std::endl;
+	else
+	  annotation_test << " " << p_bblabels[ftype]->at(ibox) << std::endl;
       }
     }
       
     if ( numfilled>0 && numfilled%100==0 ) {
-      txn->Commit();
-      txn.reset( db->NewTransaction() );
+      txn_train->Commit();
+      txn_train.reset( db_train->NewTransaction() );
+      txn_test->Commit();
+      txn_test.reset( db_test->NewTransaction() );
       //std::cout << "process " << entry << " images" << std::endl;
     }
     
-    // if ( numfilled >=20 )
-    //break;
+    // if ( numfilled >=100 )
+    //   break;
 
     if ( ftype==kCosmic )
       std::cout << "Filled cosmic" << std::endl;
@@ -322,8 +367,10 @@ int main( int narg, char** argv ) {
   }
   
   // last commit
-  txn->Commit();
-  txn.reset( db->NewTransaction() );
+  txn_train->Commit();
+  txn_train.reset( db_train->NewTransaction() );
+  txn_test->Commit();
+  txn_test.reset( db_test->NewTransaction() );
   
   std::cout << "FIN." << std::endl;
   std::cout << "Number of neutrinos filled: " << filled[kNu] << std::endl;

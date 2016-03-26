@@ -15,29 +15,56 @@
 // LArbys
 #include "datum2img.h"
 
+
+void parselist( std::string fname, std::vector<std::string>& vec ) {
+  std::ifstream f( fname.c_str() );
+
+  while ( !f.eof() && f.good() ) {
+    char buffer[2054];
+    f >> buffer;
+    std::string sbuf = buffer;
+    if (sbuf!="") {
+      if ( vec.size()==0 || vec.at(vec.size()-1)!=std::string(sbuf) )
+	vec.push_back( sbuf );
+    }
+  }
+  f.close();
+}
+
 int main( int nargs, char** argv ) {
 
   std::string input_lmdb = argv[1];
   std::string output_folder = argv[2];
   int nprocess = atoi(argv[3]);
-  std::string bbannotationfile = "__none__";
+  std::string utility_file = "__none__";
   if (nargs==5) {
-    bbannotationfile = argv[4];
+    utility_file = argv[4];
   }
 
   std::string FLAGS_backend = "lmdb";
   bool write_images = true;
   bool is_color = true;
+  bool has_pmt = true;
+  bool util_drawboxes = false;
+  bool util_makecut = true;
 
   boost::scoped_ptr<caffe::db::DB> db(caffe::db::GetDB(FLAGS_backend));
   db->Open( input_lmdb.c_str(), caffe::db::READ );
   boost::scoped_ptr<caffe::db::Cursor> cursor(db->NewCursor());
 
-  std::ifstream bboxes( bbannotationfile.c_str() );
+  std::ifstream bboxes( utility_file.c_str() );
   cv::Scalar r(100,0,0);
   cv::Scalar g(0,100,0);
   cv::Scalar b(0,0,100);
   cv::Scalar color[3] = { r, g, b};
+
+  std::vector<std::string> keylist;
+  if ( util_makecut && nargs==5 ) {
+    parselist( utility_file, keylist );
+  }
+  else {
+    util_makecut = false;
+  }
   
   // Image protobuf
   caffe::Datum datum;
@@ -45,17 +72,27 @@ int main( int nargs, char** argv ) {
 
   // convertor
   larbys::util::Datum2Image convertor;
+  convertor.setAugment(true);
 
   int nimages = 0;
   while ( cursor->valid() ) {
 
-    // if ( cursor->key()!="05001_00034_0173600" ) {
-    //   cursor->Next();
-    //   continue;
-    // }
-    // else {
-    //   std::cout << "Found image" << std::endl;
-    // }
+    if ( util_makecut ) {
+      bool foundit = false;
+      for ( std::vector<std::string>::iterator it=keylist.begin(); it!=keylist.end(); it++ )  {
+	if ( cursor->key()==(*it) ) {
+	  foundit = true;
+	  break;
+	}
+      }
+      if ( !foundit ) {
+	cursor->Next();
+	continue;
+      }
+    }
+    else {
+      std::cout << "Found image" << std::endl;
+    }
 
     datum.ParseFromString( cursor->value() );
     std::cout << "[ label " << datum.label() << "] key=" << cursor->key() << " " << datum.width() << " x " << datum.height() << " x " << datum.channels() << std::endl;
@@ -68,7 +105,7 @@ int main( int nargs, char** argv ) {
     
     // look for bounding boxes annotation
     std::vector< std::vector<int> > truth_bboxes;
-    if ( bbannotationfile!="__none__" ) {
+    if ( util_drawboxes && utility_file!="__none__" ) {
       bool found = false;
       while ( !bboxes.eof() && !found ) {
 	char buffer[1024];
@@ -97,7 +134,7 @@ int main( int nargs, char** argv ) {
       std::cout << "found " << truth_bboxes.size() << " boxes for image with key=" << cursor->key() << std::endl;
     }//if annotation file provided
     
-    cv::Mat img = convertor.datum2image( datum, is_color );
+    cv::Mat img = convertor.datum2image( datum, is_color, has_pmt );
 
     // make the filename: replace all instances of / and . with _
     std::string fname = cursor->key();

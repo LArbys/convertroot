@@ -3,6 +3,7 @@
 
 #include "opencv/cv.h"
 #include "adc2rgb.h"
+#include "PMTPos.h"
 
 namespace larbys {
   namespace util {
@@ -19,6 +20,7 @@ namespace larbys {
     public:
 
       typedef enum { kNotDefined=-1, kGreyScale, kGreyScalewPMT, kRGB, kRGBwPMT } ImageData_t;
+      typedef enum { kPMTtimescale=0, kTPCtimescale } PMTImageFormat_t;
 
       Root2Image() {
 	// we set the PMT color scale
@@ -28,24 +30,41 @@ namespace larbys {
 	pmt_colorscale.setADC_MAX( 2048.0 );
 	setTimePadding(0);
 	setWirePadding(0);
+	setPMTimageFormat( kTPCtimescale );
+	// this is dumb to have this info here. should be info that root file carries with it
+	fTstart_TimePix = 400; // start of the window crop, no downsampling
+	fTtrig_TimePix = 800;  // position of trigger, no downsampling
+	fTimeOrigScale = 5376; // length of crop window, no downsampling
       };
       virtual ~Root2Image() {};
 
-      ADC2RGB colorscale;
-      ADC2RGB pmt_colorscale;
-      int fTimePad;
-      int fWirePad;
+
       void setTimePadding( int pad ) { fTimePad = pad; };
       void setWirePadding( int pad ) { fWirePad = pad; };
+      void setPMTimageFormat( PMTImageFormat_t format ) { fPMTformat = format; };
+
+      ADC2RGB colorscale;
+      ADC2RGB pmt_colorscale;
 
       void vec2image( cv::Mat& mat, 
 		      const std::vector< std::vector<int>* >& tpc_plane_images, 
 		      const std::vector< std::vector<int>* >& pmt_images,
 		      int tpc_height, int tpc_width,
 		      int pmt_height, int pmt_width, bool rgb, bool wpmt );
-		      
-      
 
+    protected:
+
+      int fTimePad;
+      int fWirePad;
+      PMTImageFormat_t fPMTformat;
+      PMTPos fpmtposmap;
+
+      int fTstart_TimePix;
+      int fTtrig_TimePix;
+      int fTimeOrigScale;
+
+      void pmtpos2pixel( const std::vector<float>& pos, int& wirepix, int& timepix, int tlen, int wlen,  int rowsperpmt );      
+      void fillPMTImage( cv::Mat& mat, const std::vector<int>& pmtvec, int fillchannel, int nchannels, int pmt_height, int pmt_width );
     };
 
   }
