@@ -30,7 +30,7 @@ namespace larbys {
       virtual ~Root2Datum() {};
       
       void fillDatum( caffe::Datum& datum, long entry=-1 ); ///< fill a datum instance. if entry is specified, first set the Tree entry
-      void overlayImage( const Root2Datum& source, float scale_factor=1.0 );
+      void overlayImage( const Root2Datum& source, float scale_factor=1.0, float add_thresh=-1.0 );
 
     protected:
       
