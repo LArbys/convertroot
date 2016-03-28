@@ -60,10 +60,11 @@ void  parse_inputlist( std::string filename, std::vector<std::string>& inputlist
 int main( int narg, char** argv ) {
 
 
-  std::string infile_neutrino = argv[1];
-  std::string infile_cosmics = argv[2];
-  std::string outdb_train = argv[3];
-  std::string outdb_test  = argv[4];
+  std::string infile_neutrino            = argv[1];
+  std::string infile_cosmics_bnbext      = argv[2];
+  std::string infile_cosmics_extprescale = argv[3];
+  std::string outdb_train = argv[4];
+  std::string outdb_test  = argv[5];
   std::string outbblist_train = "bbox_out_train.txt";
   std::string outbblist_test  = "bbox_out_test.txt";
   std::string enc = "";
@@ -76,7 +77,7 @@ int main( int narg, char** argv ) {
   bool fApplyBadWireMask = true;
   float train_val_split = 0.7;
 
-  typedef enum { kNu=0, kCosmic, NTYPES } FileTypes_t;
+  typedef enum { kNu=0, kCosmicBNBEXT, kCosmicPrescale, NTYPES } FileTypes_t;
   typedef enum { kTRAIN=0, kTEST, NOUTPUTS } Outputs_t;
 
   larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kGreyScale;
@@ -86,7 +87,8 @@ int main( int narg, char** argv ) {
   // read input files
   std::vector< std::string > inputlist[NTYPES];
   parse_inputlist( infile_neutrino, inputlist[kNu] );
-  parse_inputlist( infile_cosmics, inputlist[kCosmic] );
+  parse_inputlist( infile_cosmics_bnbext, inputlist[kCosmicBNBEXT] );
+  parse_inputlist( infile_cosmics_extprescale, inputlist[kCosmicPrescale] );
   
   // load trees, setup branches and count number of entries
   // type of tree used for neutrinos
@@ -116,12 +118,19 @@ int main( int narg, char** argv ) {
   float Enu;
   int nbboxes;
   float bb_vertex[3];
+  std::vector<float>* p_bb_vertex_x = 0;
+  std::vector<float>* p_bb_vertex_y = 0;
+  std::vector<float>* p_bb_vertex_z = 0;
   classtrees[kNu]->SetBranchAddress( "nbboxes", &nbboxes );
   classtrees[kNu]->SetBranchAddress( "mode", &mode );
   classtrees[kNu]->SetBranchAddress( "nuscatter", &nuscatter );
   classtrees[kNu]->SetBranchAddress( "flavor", &flavor );
   classtrees[kNu]->SetBranchAddress( "Enu", &Enu );
+  classtrees[kNu]->SetBranchAddress( "bb_vertex_x", &p_bb_vertex_x );
+  classtrees[kNu]->SetBranchAddress( "bb_vertex_y", &p_bb_vertex_y );
+  classtrees[kNu]->SetBranchAddress( "bb_vertex_z", &p_bb_vertex_z );
 
+  
   // bounding box info will be needed
   std::vector<std::string>* p_bblabels[NTYPES];
   std::vector<int>* p_LoLeft_t_plane[NTYPES][fNumPlanes];
@@ -152,11 +161,13 @@ int main( int narg, char** argv ) {
   }
   
   int nbnb_entries = classtrees[kNu]->GetEntries();
-  int ncosmic_entries = classtrees[kCosmic]->GetEntries();
-
+  int ncosmic_bnbext_entries = classtrees[kCosmicBNBEXT]->GetEntries();
+  int ncosmic_prescale_entries = classtrees[kCosmicPrescale]->GetEntries();
+  
   std::cout << "number of BNB entries: " << nbnb_entries << std::endl;
-  std::cout << "number of cosmics entries: " << ncosmic_entries << std::endl;
-
+  std::cout << "number of EXT BNB cosmics entries: " << ncosmic_bnbext_entries << std::endl;
+  std::cout << "number of EXT Prescaled cosmics entries: " << ncosmic_prescale_entries << std::endl;
+  
 
   // Output LMDB
   std::string FLAGS_backend = "lmdb";
@@ -203,12 +214,15 @@ int main( int narg, char** argv ) {
   std::cout << "START LOOP" << std::endl;
 
   FileTypes_t next_type_to_fill = kNu;
-
-  while ( entry[kNu] < nbnb_entries && entry[kCosmic] < ncosmic_entries ) {
+  
+  while ( entry[kNu] < nbnb_entries 
+	  && entry[kCosmicBNBEXT] < ncosmic_bnbext_entries 
+	  && entry[kCosmicPrescale] < ncosmic_prescale_entries
+	  ) {
 
     FileTypes_t ftype = kNu;
     if ( rand.Uniform()>0.5 )
-      ftype = kCosmic;
+      ftype = kCosmicBNBEXT; // only cosmic alone
 
     larbys::util::BNBLabels_t bnblabel = larbys::util::kBackground; // default to background
 
@@ -241,14 +255,20 @@ int main( int narg, char** argv ) {
       }
       if ( bytes[kNu]==0 ) // guess we ran out of neutrinos
 	break;
+      // get prescale cosmic
+      //entry[kCosmicPrescale]++; (incremented later)
+      bytes[kCosmicPrescale] = classtrees[kCosmicPrescale]->GetEntry( entry[kCosmicPrescale] );
+      if ( bytes[kCosmicPrescale]==0 ) // guess we ran out of ext prescale cosmic windows
+	break;
+      entry[kCosmicPrescale]++;
       
     }// end of find useable event
 
     // tell the people what we're doing
-    if ( ftype==kCosmic )
-      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmic] << ")" << std::endl;
+    if ( ftype==kCosmicBNBEXT )
+      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmicBNBEXT] << ")" << std::endl;
     else
-      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmic] << ")" << std::endl;	
+      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmicPrescale] << ")" << std::endl;	
           
     // if neutrino, add in the cosmic (after first removing bad wires
     if ( ftype==kNu ) {
@@ -256,12 +276,12 @@ int main( int narg, char** argv ) {
 	if ( fTrinocular ) {
 	  std::vector<int> imgbadwires0;
 	  std::vector<int> imgbadwires1;
-	  badwires[0]->inferBadWireList( *(root2datum[kCosmic]->p_plane0), 
-					 sqrt(root2datum[kCosmic]->p_plane0->size()), 
-					 sqrt(root2datum[kCosmic]->p_plane0->size()), imgbadwires0 );
-	  badwires[1]->inferBadWireList( *(root2datum[kCosmic]->p_plane1), 
-					 sqrt(root2datum[kCosmic]->p_plane1->size()), 
-					 sqrt(root2datum[kCosmic]->p_plane1->size()), imgbadwires1 );
+	  badwires[0]->inferBadWireList( *(root2datum[kCosmicPrescale]->p_plane0), 
+					 sqrt(root2datum[kCosmicPrescale]->p_plane0->size()), 
+					 sqrt(root2datum[kCosmicPrescale]->p_plane0->size()), imgbadwires0 );
+	  badwires[1]->inferBadWireList( *(root2datum[kCosmicPrescale]->p_plane1), 
+					 sqrt(root2datum[kCosmicPrescale]->p_plane1->size()), 
+					 sqrt(root2datum[kCosmicPrescale]->p_plane1->size()), imgbadwires1 );
 	  badwires[0]->applyBadWires( *(root2datum[kNu]->p_plane0),
 				      sqrt(root2datum[kNu]->p_plane0->size()),
 				      sqrt(root2datum[kNu]->p_plane0->size()), imgbadwires0 );
@@ -270,18 +290,21 @@ int main( int narg, char** argv ) {
 				      sqrt(root2datum[kNu]->p_plane1->size()), imgbadwires1 );
 	}
 	std::vector<int> imgbadwires2;
-	badwires[2]->inferBadWireList( *(root2datum[kCosmic]->p_plane2), 
-				       sqrt(root2datum[kCosmic]->p_plane2->size()), 
-				       sqrt(root2datum[kCosmic]->p_plane2->size()), imgbadwires2 );
+	badwires[2]->inferBadWireList( *(root2datum[kCosmicPrescale]->p_plane2), 
+				       sqrt(root2datum[kCosmicPrescale]->p_plane2->size()), 
+				       sqrt(root2datum[kCosmicPrescale]->p_plane2->size()), imgbadwires2 );
 	badwires[2]->applyBadWires( *(root2datum[kNu]->p_plane2), 
 				    sqrt(root2datum[kNu]->p_plane2->size()), 
 				    sqrt(root2datum[kNu]->p_plane2->size()), imgbadwires2 );      
       }
-      root2datum[kCosmic]->overlayImage( *(root2datum[kNu]),  1.45 );
-    }
+      root2datum[kCosmicPrescale]->overlayImage( *(root2datum[kNu]),  1.45 ); // add neutrino to cosmic so that we can scale MC
       
-    // extract image into the datum
-    root2datum[kCosmic]->fillDatum( datum ); // we either use cosmic or we add neutrino to cosmics (double noise?)
+      // extract image into the datum
+      root2datum[kCosmicPrescale]->fillDatum( datum ); // we either use cosmic or we add neutrino to cosmics (double noise?)
+    }//end of if Nu
+    else {
+      root2datum[kCosmicBNBEXT]->fillDatum( datum );
+    }
 
     // set the label!!
     if ( bnblabel==larbys::util::kBackground )
@@ -294,7 +317,7 @@ int main( int narg, char** argv ) {
     CHECK( datum.SerializeToString(&out) );
       
     // make key for db entry
-    int numfilled = filled[kNu]+filled[kCosmic];
+    int numfilled = filled[kNu]+filled[kCosmicBNBEXT];
     std::string key_str = caffe::format_int(numfilled,10) + "_" + caffe::format_int( (int)bnblabel, 2  );
     
     // determine output stream
@@ -311,7 +334,7 @@ int main( int narg, char** argv ) {
     filled[ftype]++;
 
     // output annotation line
-    if ( ftype==kCosmic ) {
+    if ( ftype==kCosmicBNBEXT ) {
       if ( outstream==kTRAIN )
 	annotation_train << key_str << " " << (int)bnblabel << std::endl;
       else
@@ -354,15 +377,15 @@ int main( int narg, char** argv ) {
     // if ( numfilled >=100 )
     //   break;
 
-    if ( ftype==kCosmic )
+    if ( ftype==kCosmicBNBEXT )
       std::cout << "Filled cosmic" << std::endl;
     else
       std::cout << "Filled neutrino" << std::endl;
 
-    for (int f=0; f<NTYPES; f++)  {
-      entry[f]++;
-      bytes[f] = classtrees[f]->GetEntry( entry[f] );
-    }
+    // for (int f=0; f<NTYPES; f++)  {
+    //   entry[f]++;
+    //   bytes[f] = classtrees[f]->GetEntry( entry[f] );
+    // }
 
   }
   
@@ -374,7 +397,7 @@ int main( int narg, char** argv ) {
   
   std::cout << "FIN." << std::endl;
   std::cout << "Number of neutrinos filled: " << filled[kNu] << std::endl;
-  std::cout << "Number of cosmics filled: " << filled[kCosmic] << std::endl;
+  std::cout << "Number of cosmics filled: " << filled[kCosmicBNBEXT] << std::endl;
   
   return 0;
 }
