@@ -33,6 +33,8 @@ namespace larbys {
 	p_tree->SetBranchAddress( "img_pmt_highgain", &p_pmt_highgain );
 	p_tree->SetBranchAddress( "img_pmt_lowgain", &p_pmt_lowgain );
       }
+      p_tree->SetBranchAddress("nticks",&nticks);
+      p_tree->SetBranchAddress("nwires",nwires);
       fWithPMT = wPMT;
     }
     
@@ -50,8 +52,10 @@ namespace larbys {
       if ( fWithPMT ) wpmt = true;
       
       cv::Mat cv_img;
-      int height = sqrt( p_plane2->size() ); // hmm, this should be tree variables
-      int width = height; /// hmm, this should be tree variables
+      //int height = nticks;
+      //int width  = nwires[0];
+      int height = 768;
+      int width = 768;
 
       std::vector< std::vector<int>* > tpc_vecs;
       if ( fOptPlanes==kTrinocular ) {
@@ -82,8 +86,9 @@ namespace larbys {
 	    std::cout << "image size mismatch! " << my_branches[b]->size() << " (" << sqrt( my_branches[b]->size() ) << ")"
 		      << " vs. " << their_branches[b]->size() << " (" << sqrt(their_branches[b]->size()) << ")" << std::endl;
 	  for (int i=0; i<(int)my_branches[b]->size(); i++) {
-	    if ( add_thresh<0 || their_branches[b]->at(i)>add_thresh )
+	    if ( add_thresh<=0 || their_branches[b]->at(i)*scale_factor>add_thresh )
 	      my_branches[b]->at(i) += their_branches[b]->at(i)*scale_factor;
+	  }
 	}
       }
     }

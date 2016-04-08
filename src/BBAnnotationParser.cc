@@ -25,7 +25,7 @@ namespace larbys {
 	  bboxInfo.insert( std::map< std::string, std::vector<BBoxInfo> >::value_type( bbox_key, std::vector<BBoxInfo>() ) );
 	}
 
-	if ( std::atoi(buflabel)==1 ) {
+	if ( std::atoi(buflabel)!=0 ) {
 	  // if has truth boxes
 	  // loop with same keys
 

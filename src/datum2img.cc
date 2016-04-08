@@ -28,14 +28,36 @@ namespace larbys {
 	    if ( fAugment ) {
 	      // brighten the track
 	      if ( c!=0 )
-		val  *= 4;
+		if ( val>10 )
+		  val  *= 2;
 	      else {
-		if ( val>20 )
-		  val *= 8;
+		// blue gets extra help
+		if ( val>10 ) {
+		  val *= 2;
+		}
 	      }
 	    }
+	    val += img.at<cv::Vec3b>( cv::Point(w,h) )[c];
+	    if ( fAddTPCtrig && h==(int)(1600-400)/7 )
+	      val += 50;
+
 	    if ( val>=255) val = 255;
-	    img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short)val;
+	    if ( !fAugment )
+	      img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short)val;
+	    else {
+	      if ( c==0 ) {
+		// blue becomes orange
+		int fill1 = img.at<cv::Vec3b>( cv::Point(w,h) )[1] + val*0.647;
+		int fill2 = img.at<cv::Vec3b>( cv::Point(w,h) )[2] + val;
+		if ( fill1>=255 ) fill1=255;
+		if ( fill2>=255 ) fill2 =255;
+		img.at<cv::Vec3b>( cv::Point(w,h) )[1] = fill1;
+		img.at<cv::Vec3b>( cv::Point(w,h) )[2] = fill2;
+	      }
+	      else
+		img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short )val;
+	    }
+	    
 	    //std::cout << "(" << h << "," << w << "," << c << ") " << static_cast<unsigned short>( vec_data.at(index) ) << std::endl;
 	  }
 	}
@@ -46,6 +68,9 @@ namespace larbys {
 	    //int pmtval = (int)img.at<cv::Vec3b>( cv::Point(w,h) )[3]; // pmt value
 	    int pmtval = (int)static_cast<unsigned short>( vec_data.at((3*height+h)*width+w) );
 	    if ( fAugment ) pmtval *= 1;
+	    if ( fAddTPCtrig && ( h==190 || h==310) )
+	      pmtval += 50;
+
 	    if ( pmtval>=128  ) pmtval = 128;
 	    for (int c=0; c<3; c++) {
 	      int index = (c*height + h)*width + w;

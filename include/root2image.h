@@ -35,10 +35,18 @@ namespace larbys {
 	fTstart_TimePix = 400; // start of the window crop, no downsampling
 	fTtrig_TimePix = 800;  // position of trigger, no downsampling
 	fTimeOrigScale = 5376; // length of crop window, no downsampling
+	applyThreshold( true );
+	setThreshold( 10.0 );
+	applyScaling( false );
+	setScaling( 1.0 );
       };
       virtual ~Root2Image() {};
 
 
+      void setThreshold( float threshold ) { fADCThreshold = threshold; };
+      void applyThreshold( bool apply=true ) { fApplyThreshold=apply; };
+      void setScaling( float scale ) { fScaling = scale; };
+      void applyScaling( bool apply =true ) { fApplyScaling=apply; };
       void setTimePadding( int pad ) { fTimePad = pad; };
       void setWirePadding( int pad ) { fWirePad = pad; };
       void setPMTimageFormat( PMTImageFormat_t format ) { fPMTformat = format; };
@@ -58,6 +66,10 @@ namespace larbys {
       int fWirePad;
       PMTImageFormat_t fPMTformat;
       PMTPos fpmtposmap;
+      float fADCThreshold;
+      bool fApplyThreshold;
+      float fScaling;
+      bool fApplyScaling;
 
       int fTstart_TimePix;
       int fTtrig_TimePix;

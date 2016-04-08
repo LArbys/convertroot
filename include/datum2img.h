@@ -18,9 +18,11 @@ namespace larbys {
       void tridata2image( const cv::Mat& tridata, cv::Mat& image );
 
       void setAugment( bool augment ) { fAugment=augment; }; // augment contrast
+      void addTPCtrig( bool add ) { fAddTPCtrig=add; };
 
     protected:
       bool fAugment;
+      bool fAddTPCtrig;
 
     };
 

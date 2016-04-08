@@ -63,6 +63,14 @@ namespace larbys {
 	      val = (float)(vec->at( (w)*height + (h) )-BASELINE); // tpc
 	    else
 	      val = (float)(vec->at( (h)*width + (width-1-w) )-BASELINE);  // pmt
+
+	    // apply scaling
+	    if ( fApplyScaling )
+	      val *= fScaling;
+
+	    // noise threshold
+	    if ( fApplyThreshold && val<fADCThreshold )
+	      val = 0.0;
 	    
 	    if ( iplane<nplanes && rgb ) {
 	      // apply rgb scale to tpc planes

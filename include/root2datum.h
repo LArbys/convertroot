@@ -49,6 +49,8 @@ namespace larbys {
       std::vector<int>* p_plane2;
       std::vector<int>* p_pmt_highgain;
       std::vector<int>* p_pmt_lowgain;
+      int nticks;
+      int nwires[3];
       
     };
     
