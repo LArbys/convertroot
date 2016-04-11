@@ -38,7 +38,7 @@ namespace larbys {
       fWithPMT = wPMT;
     }
     
-    void Root2Datum::fillDatum( caffe::Datum& datum, long entry ) {
+    cv::Mat Root2Datum::fillDatum( caffe::Datum& datum, long entry ) {
 
       if ( entry>=0 ) {
 	long bytes = p_tree->GetEntry( entry );
@@ -74,7 +74,8 @@ namespace larbys {
       
       convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, width, rgb, wpmt );
       caffe::CVMatToDatum( cv_img, &datum );
-
+      
+      return cv_img;
     }
 
     void Root2Datum::overlayImage( const Root2Datum& source, float scale_factor, float add_thresh ) {
