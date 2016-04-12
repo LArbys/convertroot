@@ -7,6 +7,7 @@ namespace larbys {
     
     PMTWireWeights::PMTWireWeights( int wire_rows ) {
       fNWires = wire_rows;
+      fCurrentWireWidth = -1;
 
       fGeoInfoFile = "configfiles/geoinfo.root";
       std::cout << "Filling Weights using " << fGeoInfoFile << std::endl;
@@ -24,6 +25,8 @@ namespace larbys {
 	//std::cout << "[pmt " << femch << "] ";
 	for (int i=0; i<3; i++) {
 	  pmtpos[femch][i] = pos[i];
+	  // if ( i==2 )
+	  //   pmtpos[femch][i] += 10.0; // alignment issues?
 	  //std::cout << pmtpos[femch][i] << " ";
 	}
 	//std::cout << std::endl;
@@ -76,7 +79,7 @@ namespace larbys {
 	int plane = (*it).first;
 	WireData const& data = (*it).second;
 	int nwires = data.nwires();
-	if ( fNWires>0 ) 
+	if ( fNWires>0 )
 	  nwires = fNWires;
 
 	cv::Mat mat( nwires, fNPMTs, CV_32F );
@@ -99,9 +102,14 @@ namespace larbys {
 	    float p2[2] = { pmtpos[ipmt][2], pmtpos[ipmt][1] };
 	    float d = getDistance2D( s2, s2, p2, l2 );
 	    float w = 1.0/(d*d);
+	    
+	    if ( plane==-1 ) // we use a different weight for the V plane -- alignement problems?
+	      w = 1.0/d;
+
 	    dists[ipmt] = w;
 	    if ( w>denom )
 	      denom = w;
+
 	    //denom += 1.0/(d*d);
 	    //std::cout << d << " ";
 	    //denom += d;
@@ -111,6 +119,12 @@ namespace larbys {
 	  // populate the matrix
 	  for (int ipmt=0; ipmt<fNPMTs; ipmt++) {
 	    mat.at<float>( wireid, ipmt ) = dists.at(ipmt)/denom;
+	    if ( wireid==2399 && plane<=1 ) {
+	      // we pad out the right side a bit, to help with some alignment issues on the edge
+	      for (int pad=0;pad<768; pad++) {
+		mat.at<float>( wireid+pad, ipmt ) = dists.at(ipmt)/denom;
+	      }
+	    }
 	  }
 	  iwires++;
 	}//end of wire loop
@@ -140,5 +154,7 @@ namespace larbys {
       return dist;
     }
 
+    void PMTWireWeights::applyWeights( const cv::Mat& src, std::vector<float>& pmtQweights, cv::Mat& out ) {
+    }
   }
 }

@@ -41,7 +41,6 @@ namespace larbys {
     public:
 
       larbys::util::Root2Image convertor;
-      larbys::util::ADC2RGB colorscale;
 
       TChain* p_tree;
       std::vector<int>* p_plane0;

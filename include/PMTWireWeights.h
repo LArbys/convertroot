@@ -102,9 +102,12 @@ namespace larbys {
 
       // The object we end up filling
       std::map<int, cv::Mat> planeWeights; // index is the plane number
+      std::map<int, cv::Mat> weightImage;  // index is the plane number: this is the planeWeights matrices, resized to a specific image width/height
+      int fCurrentWireWidth;
 
       float getDistance2D( float s[], float e[], float p[], float l2 );
       void configure();
+      void applyWeights( const cv::Mat& src, std::vector<float>& pmtQweights, cv::Mat& out );
 
     };
     

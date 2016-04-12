@@ -35,6 +35,7 @@ namespace larbys {
       		<< " ntpcvecs=" << nplanes
       		<< " channels_per_plane=" << channels_per_tpc_plane
       		<< " npmtvecs=" << pmtchannels 
+		<< " zeros=" << colorscale.getGreyscale( 0.0 ) << "," << PMT_BASELINE
 		<< " " << eff_width << " x " << eff_height << std::endl;
 
       for ( int iplane=0; iplane<nplanes+pmtchannels; iplane++ ) {

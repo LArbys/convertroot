@@ -30,20 +30,22 @@ namespace larbys {
 	      if ( c!=0 )
 		if ( val>10 )
 		  val  *= 2;
-	      else {
-		// blue gets extra help
-		if ( val>10 ) {
-		  val *= 2;
+		else {
+		  // blue gets extra help
+		  if ( val>10 ) {
+		    val *= 2;
+		  }
 		}
-	      }
 	    }
 	    val += img.at<cv::Vec3b>( cv::Point(w,h) )[c];
 	    if ( fAddTPCtrig && h==(int)(1600-400)/7 )
 	      val += 50;
 
 	    if ( val>=255) val = 255;
-	    if ( !fAugment )
+	    if ( !fAugment ) {
+	      //std::cout << (unsigned short)val << std::endl;
 	      img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short)val;
+	    }
 	    else {
 	      if ( c==0 ) {
 		// blue becomes orange
@@ -55,7 +57,7 @@ namespace larbys {
 		img.at<cv::Vec3b>( cv::Point(w,h) )[2] = fill2;
 	      }
 	      else
-		img.at<cv::Vec3b>( cv::Point(w,h) )[c] = (unsigned short )val;
+		img.at<cv::Vec3b>( cv::Point(w,h) )[c] = val;
 	    }
 	    
 	    //std::cout << "(" << h << "," << w << "," << c << ") " << static_cast<unsigned short>( vec_data.at(index) ) << std::endl;
@@ -101,7 +103,8 @@ namespace larbys {
 	for (int w=0; w<width; w++) {
 	  for (int c=0; c<nchannels; c++) {
 	    int index = (c*height + h)*width + w;
-	    img.at< cv::Vec<uchar,9> >( cv::Point(h,w) )[c] = static_cast<unsigned short>( vec_data.at(index) );
+	    //img.at< cv::Vec<uchar,9> >( cv::Point(h,w) )[c] = static_cast<unsigned short>( vec_data.at(index) );
+	    img.at< cv::Vec<uchar,9> >( cv::Point(h,w) )[c] = vec_data.at(index);
 	    //std::cout << "(" << h << "," << w << "," << c << ") " << static_cast<unsigned short>( vec_data.at(index) ) << std::endl;
 	  }
 	}

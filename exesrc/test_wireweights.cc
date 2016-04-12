@@ -94,8 +94,8 @@ int main( int nargs, char** argv ) {
 
   std::cout << "Setup Converter...";
   larbys::util::Root2Datum root2datum( tree, larbys::util::Root2Datum::kTrinocular, larbys::util::Root2Datum::kGreyScale, fAddPMT );
-  root2datum.colorscale.setADC_MIN( 0.0 );
-  root2datum.colorscale.setADC_MAX( 255.0 );
+  root2datum.convertor.colorscale.setADC_MIN( 0.0 );
+  root2datum.convertor.colorscale.setADC_MAX( 255.0 );
   root2datum.convertor.setTimePadding( 10 );
   root2datum.convertor.setWirePadding( 0 );
   root2datum.convertor.pmt_colorscale.setADC_MIN( 0.0 );
@@ -208,27 +208,38 @@ int main( int nargs, char** argv ) {
 
     img = convertor.datum2image( datum, is_color, false ); // no pmt this time
 
-    // weight the image
+    // weight the image: draw onto tiled image
+    cv::Mat tiled( datum.height(), datum.width()*3+2, CV_8UC3 );
+    tiled = cv::Mat::zeros( datum.height(), datum.width()*3+2, CV_8UC3 );
+
     int chplane[3] = { 0, 1, 2 };
     for (int c=0; c<3; c++) {
       int height = datum.height();
       int width = datum.width();
       for (int h=0; h<height; h++) {
     	for (int w=0; w<width; w++) {
-    	  img.at<cv::Vec3b>( cv::Point(w,h) )[c] *= wireweights[chplane[c]].at<float>( 1, w );
+    	  int val = img.at<cv::Vec3b>( cv::Point(w,h) )[c] * wireweights[chplane[c]].at<float>( 1, w );
 	  if ( c>=0 ) {
-	    int val = (int) img.at<cv::Vec3b>( cv::Point(w,h) )[c];
+	    // augment
 	    val = std::min( 255, val*5 );
 	    if ( c==0 )
 	      val = std::min( 255, val*5 );
-	    img.at<cv::Vec3b>( cv::Point(w,h) )[c] = val;
 	  }
+	  tiled.at<cv::Vec3b>( h, c*datum.width() + c + w )[c] = val;
     	}
       }
     }
 
+    // fill in boundaries
+    for (int h=0; h<datum.height(); h++) {
+      for (int i=0; i<3; i++) {
+	tiled.at<cv::Vec3b>( h, datum.width() )[i] = 255;
+	tiled.at<cv::Vec3b>( h, datum.width()*2 + 1 )[i] = 255;
+      }
+    }
+    
     outpath = output_folder + "/" + fname.str() + "_pmtweighted.PNG";
-    cv::imwrite( outpath, img );
+    cv::imwrite( outpath, tiled );
 
     numfilled++;
     
@@ -241,7 +252,7 @@ int main( int nargs, char** argv ) {
     entry++;
     bytes = tree->GetEntry( entry );
     
-    if ( entry>=11 )
+    if ( entry>=21 )
       break;
   }
   
