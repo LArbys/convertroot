@@ -48,8 +48,10 @@ namespace larbys {
 	}
 	else {
 	  vec = pmt_images.at( iplane-nplanes );
-	  height = pmt_height;
-	  width  = pmt_width;
+	  //height = pmt_height;
+	  //width  = pmt_width;
+	  height = tpc_height;
+	  width  = tpc_width;
 	  if ( fPMTformat==kTPCtimescale )
 	    continue; // if fancy overlay mode, we skip the PMT portion for now. we do this later
 	}

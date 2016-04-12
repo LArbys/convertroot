@@ -72,7 +72,7 @@ namespace larbys {
 	pmt_vecs.push_back( p_pmt_highgain );
 
       
-      convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, width, rgb, wpmt );
+      convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, 692, rgb, wpmt );
       caffe::CVMatToDatum( cv_img, &datum );
       
       return cv_img;

@@ -1,5 +1,6 @@
 #include "PMTWireWeights.h"
 #include <iostream>
+#include "opencv/cv.h"
 
 namespace larbys {
   namespace util {
@@ -79,6 +80,7 @@ namespace larbys {
 	  nwires = fNWires;
 
 	cv::Mat mat( nwires, fNPMTs, CV_32F );
+	mat = cv::Mat::zeros( nwires, fNPMTs, CV_32F );
 
 	int iwires = 0;
 	for ( std::set< int >::iterator it_wire=data.wireIDs.begin(); it_wire!=data.wireIDs.end(); it_wire++ ) {
@@ -91,12 +93,16 @@ namespace larbys {
 	  float l2 = (*(data.wireL2.find(wireid))).second;
 
 	  std::vector<float> dists(fNPMTs,0.0);
-	  float denom = 1000.0;
+	  float denom = 0;
 	  //std::cout << "[plane " << plane << ", wire " << wireid << "] ";
 	  for (int ipmt=0; ipmt<fNPMTs; ipmt++) {
 	    float p2[2] = { pmtpos[ipmt][2], pmtpos[ipmt][1] };
 	    float d = getDistance2D( s2, s2, p2, l2 );
-	    dists[ipmt] = d;
+	    float w = 1.0/(d*d);
+	    dists[ipmt] = w;
+	    if ( w>denom )
+	      denom = w;
+	    //denom += 1.0/(d*d);
 	    //std::cout << d << " ";
 	    //denom += d;
 	  }
