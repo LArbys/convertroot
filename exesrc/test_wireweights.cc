@@ -252,7 +252,7 @@ int main( int nargs, char** argv ) {
     entry++;
     bytes = tree->GetEntry( entry );
     
-    if ( entry>=21 )
+    if ( entry>=101 )
       break;
   }
   

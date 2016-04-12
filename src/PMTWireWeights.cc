@@ -103,7 +103,7 @@ namespace larbys {
 	    float d = getDistance2D( s2, s2, p2, l2 );
 	    float w = 1.0/(d*d);
 	    
-	    if ( plane==-1 ) // we use a different weight for the V plane -- alignement problems?
+	    if ( plane==1 ) // we use a different, wider weight for the V plane -- alignement problems?
 	      w = 1.0/d;
 
 	    dists[ipmt] = w;
