@@ -142,8 +142,6 @@ int main( int nargs, char** argv ) {
       
       for (int t=190; t<320; t++) {
 	// sum over the trigger window
-	//(float)(vec->at( (h)*width + (width-1-w) )-BASELINE);  // pmt 
-	//int index = t*768 + (768-1-ipmt*int(768/32));
 	int index = t*768 + ipmt*int(768/32);
 	float highadc = root2datum.p_pmt_highgain->at( index );
 	float lowadc  = root2datum.p_pmt_lowgain->at( index );

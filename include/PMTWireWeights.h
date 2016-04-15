@@ -107,8 +107,12 @@ namespace larbys {
 
       float getDistance2D( float s[], float e[], float p[], float l2 );
       void configure();
-      void applyWeights( const cv::Mat& src, std::vector<float>& pmtQweights, cv::Mat& out );
-
+      void applyWeights( const cv::Mat& plane_images_src, 
+			 const std::vector<int>& pmt_highgain_adcvec, 
+			 const std::vector<int>& pmt_lowgain_adcvec, 
+			 cv::Mat& plane_images_weighted );
+      
+      
     };
     
   }

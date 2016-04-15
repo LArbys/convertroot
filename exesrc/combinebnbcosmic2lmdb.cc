@@ -69,10 +69,10 @@ int main( int narg, char** argv ) {
   std::string enc = "";
   int SEED = 123567;
   bool fTrinocular = true; // fold in all three views into data
-  bool fAddPMT = true;
+  bool fAddPMT = false;
   std::string producer = "bnbcosmics";
   const int fNumPlanes = 3;
-  double fEnergyCut = 0.400;
+  double fEnergyCut = 0.500;
   bool fApplyBadWireMask = true;
   float train_val_split = 0.7;
 
@@ -104,11 +104,11 @@ int main( int narg, char** argv ) {
       root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kTrinocular, fColor, fAddPMT );
     else
       root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kCollectionOnly, fColor, fAddPMT );
-    root2datum[i]->colorscale.setADC_MIN(0);
-    root2datum[i]->colorscale.setADC_MAX(255);
-    root2datum[i]->convertor.setTimePadding( 40 );
-    if ( fAddPMT )
-      root2datum[i]->convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
+    root2datum[i]->convertor.colorscale.setADC_MIN(0);
+    root2datum[i]->convertor.colorscale.setADC_MAX(255);
+    root2datum[i]->convertor.setTimePadding( 20 );
+    //if ( fAddPMT )
+    //root2datum[i]->convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
   }
 
   // neutrino tree has MC variables
@@ -232,7 +232,7 @@ int main( int narg, char** argv ) {
 
       while ( bytes[kNu]>0 && ( nbboxes==0 || p_bblabels[kNu]->at(0)!="neutrino"
 				|| !passes_plane0 || !passes_plane1 || !passes_plane2
-				|| Enu<fEnergyCut || bnblabel!=larbys::util::kNumuCCQE 
+				|| Enu<fEnergyCut || bnblabel!=larbys::util::kNumuCCRES
 				
 				) ) {
 	entry[kNu]++;
@@ -277,7 +277,8 @@ int main( int narg, char** argv ) {
 				    sqrt(root2datum[kNu]->p_plane2->size()), 
 				    sqrt(root2datum[kNu]->p_plane2->size()), imgbadwires2 );      
       }
-      root2datum[kCosmic]->overlayImage( *(root2datum[kNu]),  1.45 );
+      root2datum[kCosmic]->overlayImage( *(root2datum[kNu]),  1.5, 7.0 );
+      //root2datum[kCosmic]->overlayImage( *(root2datum[kNu]),  1.45, 0.0 );
     }
       
     // extract image into the datum

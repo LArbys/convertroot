@@ -29,7 +29,7 @@ namespace larbys {
       Root2Datum( TChain* tree_ptr, NumPlanes_t opt_planes, ColorOption_t opt_color, bool wPMT=false );
       virtual ~Root2Datum() {};
       
-      cv::Mat fillDatum( caffe::Datum& datum, long entry=-1 ); ///< fill a datum instance. if entry is specified, first set the Tree entry
+      cv::Mat fillDatum( caffe::Datum& datum, long entry=-1, bool fillPMT=true ); ///< fill a datum instance. if entry is specified, first set the Tree entry
       void overlayImage( const Root2Datum& source, float scale_factor=1.0, float add_thresh=-1.0 );
 
     protected:

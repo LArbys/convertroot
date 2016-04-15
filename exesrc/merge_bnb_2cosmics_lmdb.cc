@@ -4,13 +4,21 @@
 #include <string>
 #include <set>
 #include <utility>
+#include <algorithm>
 
 // This prepares data stored in LArby's rootfiles into LMDB format for caffe.
 // The reason we have a separate program is this task has a number of specializations
 // (1) determine labels based on mode, nuscatter and flavor categories
 // (2) The BNB data is already shuffled. No need to shuffle classes like the single particle code.
-// (3) We split the cosmic samples listed in half.  First half is used as background sample. Second half is used to overlay with BNB neutrino.
-
+// (3) We use two different cosmic ray muon sources: (1) EXT unbiased and (2) EXT+BNB SWTRIG
+//     The first we combine with MC neutrinos, the second we use for the background-only sample
+// (4) We arrange the data for a trimese network. Each plane gets the image, plus addition data:
+//     (1) a pmt-charge weighted image and (2) HIP and MIP filtered images
+//     This data is arranged [plane0,plane0-pmtweighted,plane0-MIP,plane0-HIP,plane1,...]
+// (5) We pad in the time region to allow for different crops during training
+// (6) We also reuse the MC neutrinos (several times), changing the cosmic background 
+//      and the scaling factor applied to the MC ADCs.
+// (7) We vary the ADC threshold slightly as well
 
 // Caffe and LMDB
 #include "lmdb.h"
@@ -34,6 +42,8 @@
 #include "emptyfilter.h"
 #include "BNBLabels.h"
 #include "UBBadWires.h"
+#include "PMTWireWeights.h"
+#include "HMFilter.h"
 
 // ROOT
 #include "TFile.h"
@@ -68,6 +78,7 @@ int main( int narg, char** argv ) {
   std::string outbblist_train = "bbox_out_train.txt";
   std::string outbblist_test  = "bbox_out_test.txt";
   std::string enc = "";
+  larbys::util::BNBLabels_t target_label = larbys::util::kNumuCCQE;
   int SEED = 123567;
   bool fTrinocular = true; // fold in all three views into data
   bool fAddPMT = true;
@@ -81,9 +92,7 @@ int main( int narg, char** argv ) {
   typedef enum { kTRAIN=0, kTEST, NOUTPUTS } Outputs_t;
 
   larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kGreyScale;
-  //larbys::util::Root2Datum::ColorOption_t fColor = larbys::util::Root2Datum::kFalseColor;
   
-
   // read input files
   std::vector< std::string > inputlist[NTYPES];
   parse_inputlist( infile_neutrino, inputlist[kNu] );
@@ -102,13 +111,12 @@ int main( int narg, char** argv ) {
   std::cout << "Setup Image Maker" << std::endl;
   larbys::util::Root2Datum* root2datum[NTYPES];
   for (int i=0; i<NTYPES; i++) {
-    if ( fTrinocular ) 
-      root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kTrinocular, fColor, fAddPMT );
-    else
-      root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kCollectionOnly, fColor, fAddPMT );
-    root2datum[i]->colorscale.setADC_MIN(0);
-    root2datum[i]->colorscale.setADC_MAX(255);
-    root2datum[i]->convertor.setTimePadding( 40 );
+    root2datum[i] = new larbys::util::Root2Datum( classtrees[i], larbys::util::Root2Datum::kTrinocular, fColor, fAddPMT );
+    root2datum[i]->convertor.colorscale.setADC_MIN(0);
+    root2datum[i]->convertor.colorscale.setADC_MAX(255);
+    root2datum[i]->convertor.applyThreshold( true );
+    root2datum[i]->convertor.setThreshold( 10.0 );
+    root2datum[i]->convertor.setTimePadding( 10 );
     if ( fAddPMT )
       root2datum[i]->convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
   }
@@ -159,15 +167,18 @@ int main( int narg, char** argv ) {
     }
     classtrees[i]->SetBranchAddress( "bblabels", &(p_bblabels[i]) );
   }
-  
-  int nbnb_entries = classtrees[kNu]->GetEntries();
-  int ncosmic_bnbext_entries = classtrees[kCosmicBNBEXT]->GetEntries();
-  int ncosmic_prescale_entries = classtrees[kCosmicPrescale]->GetEntries();
-  
-  std::cout << "number of BNB entries: " << nbnb_entries << std::endl;
-  std::cout << "number of EXT BNB cosmics entries: " << ncosmic_bnbext_entries << std::endl;
-  std::cout << "number of EXT Prescaled cosmics entries: " << ncosmic_prescale_entries << std::endl;
-  
+
+  // Get Total Entries
+  int sampleentries[NTYPES];
+  for (int i=0; i<NTYPES; i++) {
+    sampleentries[i] = classtrees[i]->GetEntries();
+  }
+
+  std::cout << "[COMPONENT SAMPLE ENTRIES]" << std::endl;
+  std::cout << "EXT UNBIASED: " << sampleentries[kCosmicPrescale] << std::endl;
+  std::cout << "EXT SWTRIG  : " << sampleentries[kCosmicBNBEXT] << std::endl;
+  std::cout << "MCC7 BNB NU : " << sampleentries[kNu] << std::endl;
+  std::cin.get();
 
   // Output LMDB
   std::string FLAGS_backend = "lmdb";
@@ -185,17 +196,25 @@ int main( int narg, char** argv ) {
   std::ofstream annotation_train( outbblist_train.c_str() );
   std::ofstream annotation_test(  outbblist_test.c_str() );
 
-  // filter
-  larbys::util::EmptyFilter filter( 10.0, 10.0/(448.0*448.0) );
-
   // bad wire tool
   larbys::util::UBBadWires* badwires[fNumPlanes];
   badwires[0] = new larbys::util::UBBadWires( 0.01 );
   badwires[1] = new larbys::util::UBBadWires( 0.01 );
   badwires[2] = new larbys::util::UBBadWires( 0.01 );
 
+  // PMT wire weight tool
+  larbys::util::PMTWireWeights pmtweights( 768*5 );
+
+  // HIP/MIP Filter
+  larbys::util::HMFilter* hmfilter[3];
+  for (int i=0; i<3; i++) {
+    hmfilter[i] = new larbys::util::HMFilter(768,768);
+    hmfilter[i]->setMIPbounds( 15, 45 );
+  }
+  
   // Image Protobuf
   caffe::Datum datum;
+  caffe::Datum datum_final;
 
   // Event Loop
 
@@ -215,62 +234,62 @@ int main( int narg, char** argv ) {
 
   FileTypes_t next_type_to_fill = kNu;
   
-  while ( entry[kNu] < nbnb_entries 
-	  && entry[kCosmicBNBEXT] < ncosmic_bnbext_entries 
-	  && entry[kCosmicPrescale] < ncosmic_prescale_entries
-	  ) {
+  while ( entry[kCosmicBNBEXT]<sampleentries[kCosmicBNBEXT]
+	  && entry[kCosmicPrescale]<sampleentries[kCosmicPrescale] ) {
+    // the cosmic data sample is our limiting factor
+    // we are willing to reuse MC events, augmenting by verying the scale factor
 
     FileTypes_t ftype = kNu;
-    if ( rand.Uniform()>0.5 )
+    larbys::util::BNBLabels_t bnblabel = target_label;
+    if ( rand.Uniform()>0.5 ) {
       ftype = kCosmicBNBEXT; // only cosmic alone
-
-    larbys::util::BNBLabels_t bnblabel = larbys::util::kBackground; // default to background
+      bnblabel = larbys::util::kBackground; // default to background
+    }
 
     // if we are filling a neutrino, we need to make sure the next event actually has one
     // and that the neutrino isn't some low energy event
     if ( ftype==kNu ) {
-
-      // filter out images with little charge (not used for now)
-      bool passes_plane0 = true;
-      bool passes_plane1 = true;
-      bool passes_plane2 = true;
-      // bool passes_plane2 = filter.passesTotalFilter( *(p_plane2), 20*100 );
-      // if ( kTrinocular ) {
-      //   passes_plane0 = filter.passesTotalFilter( *(p_plane0), 20*100 );
-      //   passes_plane0 = filter.passesTotalFilter( *(p_plane1), 20*100 );
-      // }
+      // get the next neutrino entry
+      bytes[kNu] = classtrees[kNu]->GetEntry( entry[kNu] );
 
       // get the neutrino label
-      bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
+      larbys::util::BNBLabels_t evt_bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
       //bnblabel = larbys::util::kNumuCCQE; // this is label '1'.
 
       while ( bytes[kNu]>0 && ( nbboxes==0 || p_bblabels[kNu]->at(0)!="neutrino"
-				|| !passes_plane0 || !passes_plane1 || !passes_plane2
-				|| Enu<fEnergyCut || bnblabel!=larbys::util::kNumuCCQE 
-				
+				|| Enu<fEnergyCut || evt_bnblabel!=target_label
 				) ) {
+	// failed out selection, we get some more
+	std::cout << "  bad neutrino pick: " << evt_bnblabel << " " << Enu << " " << nbboxes << std::endl;
 	entry[kNu]++;
+	if ( entry[kNu]==sampleentries[kNu] ) entry[kNu] = 0; // roll over
 	bytes[kNu] = classtrees[kNu]->GetEntry( entry[kNu] );
-	bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
+	evt_bnblabel = larbys::util::labelFromRootVars( mode, nuscatter, flavor ); // if neutrino, we label it
       }
-      if ( bytes[kNu]==0 ) // guess we ran out of neutrinos
-	break;
+      
       // get prescale cosmic
-      //entry[kCosmicPrescale]++; (incremented later)
       bytes[kCosmicPrescale] = classtrees[kCosmicPrescale]->GetEntry( entry[kCosmicPrescale] );
       if ( bytes[kCosmicPrescale]==0 ) // guess we ran out of ext prescale cosmic windows
 	break;
       entry[kCosmicPrescale]++;
-      
+      entry[kNu]++;
+      std::cout << "  neutrino pick: " << evt_bnblabel << " " << Enu << " " << nbboxes << std::endl; 
     }// end of find useable event
-
+    else {
+      bytes[kCosmicBNBEXT] = classtrees[kCosmicBNBEXT]->GetEntry( entry[kCosmicBNBEXT] );
+      if ( bytes[kCosmicBNBEXT]==0 )
+	break;
+      entry[kCosmicBNBEXT]++;
+    }
+    
     // tell the people what we're doing
     if ( ftype==kCosmicBNBEXT )
-      std::cout << "Make a cosmic (label=" << bnblabel << ") event (using " << entry[kCosmicBNBEXT] << ")" << std::endl;
+      std::cout << "Make a cosmic-only event (label=" << bnblabel << ") event (using BNBEXT entry " << entry[kCosmicBNBEXT] << ")" << std::endl;
     else
-      std::cout << "Make a neutrino (label=" << bnblabel << ") event (entry " << entry[kNu] << ", cosmic entry " << entry[kCosmicPrescale] << ")" << std::endl;	
+      std::cout << "Make a neutrino/cosmic overlay (label=" << bnblabel << ") event (NU entry " << entry[kNu] << ", prescale cosmic entry " << entry[kCosmicPrescale] << ")" << std::endl;
           
     // if neutrino, add in the cosmic (after first removing bad wires
+    cv::Mat plane_images;
     if ( ftype==kNu ) {
       if ( fApplyBadWireMask ) {
 	if ( fTrinocular ) {
@@ -297,24 +316,77 @@ int main( int narg, char** argv ) {
 				    sqrt(root2datum[kNu]->p_plane2->size()), 
 				    sqrt(root2datum[kNu]->p_plane2->size()), imgbadwires2 );      
       }
-      root2datum[kCosmicPrescale]->overlayImage( *(root2datum[kNu]),  1.45 ); // add neutrino to cosmic so that we can scale MC
-      
+
+      double mcscale_factor = rand.Gaus( 2.0, 0.05 );
+      mcscale_factor = std::max( 0.0, mcscale_factor );
+      root2datum[kCosmicPrescale]->overlayImage( *(root2datum[kNu]),  mcscale_factor ); // add neutrino to cosmic so that we can scale MC
+
+
       // extract image into the datum
-      root2datum[kCosmicPrescale]->fillDatum( datum ); // we either use cosmic or we add neutrino to cosmics (double noise?)
+      // randomize threshold
+      float adc_threshold = rand.Gaus( 10.0, 0.5 );
+      root2datum[kCosmicPrescale]->convertor.setThreshold( adc_threshold );
+      plane_images = root2datum[kCosmicPrescale]->fillDatum( datum, -1, false ); // we either use cosmic or we add neutrino to cosmics (double noise?)
+      filled[kNu]++;
     }//end of if Nu
     else {
-      root2datum[kCosmicBNBEXT]->fillDatum( datum );
+      // extract BNB EXT Cosmic into datum
+      // randomize threshold
+      float adc_threshold = rand.Gaus( 10.0, 0.5 );
+      root2datum[kCosmicBNBEXT]->convertor.setThreshold( adc_threshold );
+      plane_images = root2datum[kCosmicBNBEXT]->fillDatum( datum, -1, false );
+      filled[kCosmicBNBEXT]++;
     }
+
+
+    // [ now do all our fancy crap to the image ]
+
+    // PMT Weighted
+    cv::Mat pmtweighted;
+    if ( ftype==kNu )
+      pmtweights.applyWeights( plane_images, *(root2datum[kCosmicPrescale]->p_pmt_highgain), *(root2datum[kCosmicPrescale]->p_pmt_lowgain), pmtweighted );
+    else
+      pmtweights.applyWeights( plane_images, *(root2datum[kCosmicBNBEXT]->p_pmt_highgain), *(root2datum[kCosmicBNBEXT]->p_pmt_lowgain), pmtweighted );
+
+    cv::Mat chimages[3];
+    cv::Mat chweighted[3];
+    cv::split( plane_images, chimages );
+    cv::split( pmtweighted, chweighted );
+    for (int i=0; i<3; i++) {
+      std::cout << "[plane " << i << "] " << chimages[i].size() << std::endl;
+    }
+
+    // HIP/MIP Filter
+    cv::Mat chmip[3];
+    cv::Mat chhip[3];
+    for (int p=0; p<3; p++) {
+      hmfilter[p]->applyFilter( chimages[p], chmip[p], chhip[p] );
+    }
+
+    // MERGE
+    cv::Mat merge( plane_images.size().height, plane_images.size().width, CV_8UC(12) );
+    for (int p=0; p<3; p++) {
+      for (int h=0; h<plane_images.size().height; h++) {
+	for (int w=0; w<plane_images.size().width; w++) {
+	  merge.at< cv::Vec<uchar,12> >(h,w)[4*p + 0 ] = chimages[p].at< cv::Vec<uchar,1> >(h,w)[0];
+	  merge.at< cv::Vec<uchar,12> >(h,w)[4*p + 1 ] = chweighted[p].at< cv::Vec<uchar,1> >(h,w)[0];
+	  merge.at< cv::Vec<uchar,12> >(h,w)[4*p + 2 ] = chmip[p].at< cv::Vec<uchar,1> >(h,w)[0];
+	  merge.at< cv::Vec<uchar,12> >(h,w)[4*p + 3 ] = chhip[p].at< cv::Vec<uchar,1> >(h,w)[0];
+	}
+      }
+    }
+    
+    caffe::CVMatToDatum( merge, &datum_final );
 
     // set the label!!
     if ( bnblabel==larbys::util::kBackground )
-      datum.set_label( 0 );
+      datum_final.set_label( 0 );
     else
-      datum.set_label( 1 );
+      datum_final.set_label( 1 );
 
     // serialize
     std::string out;
-    CHECK( datum.SerializeToString(&out) );
+    CHECK( datum_final.SerializeToString(&out) );
       
     // make key for db entry
     int numfilled = filled[kNu]+filled[kCosmicBNBEXT];
@@ -331,7 +403,6 @@ int main( int narg, char** argv ) {
       txn_test->Put( key_str, out );
       outstream = kTEST;
     }
-    filled[ftype]++;
 
     // output annotation line
     if ( ftype==kCosmicBNBEXT ) {
@@ -365,7 +436,7 @@ int main( int narg, char** argv ) {
 	  annotation_test << " " << p_bblabels[ftype]->at(ibox) << std::endl;
       }
     }
-      
+    
     if ( numfilled>0 && numfilled%100==0 ) {
       txn_train->Commit();
       txn_train.reset( db_train->NewTransaction() );
@@ -374,20 +445,15 @@ int main( int narg, char** argv ) {
       //std::cout << "process " << entry << " images" << std::endl;
     }
     
-    // if ( numfilled >=100 )
-    //   break;
+    if ( numfilled>=50000 )
+      break;
 
     if ( ftype==kCosmicBNBEXT )
       std::cout << "Filled cosmic" << std::endl;
     else
       std::cout << "Filled neutrino" << std::endl;
 
-    // for (int f=0; f<NTYPES; f++)  {
-    //   entry[f]++;
-    //   bytes[f] = classtrees[f]->GetEntry( entry[f] );
-    // }
-
-  }
+  }//end of while loop
   
   // last commit
   txn_train->Commit();

@@ -1,3 +1,4 @@
+
 #include "root2datum.h"
 #include "assert.h"
 #include <iostream>
@@ -38,7 +39,7 @@ namespace larbys {
       fWithPMT = wPMT;
     }
     
-    cv::Mat Root2Datum::fillDatum( caffe::Datum& datum, long entry ) {
+    cv::Mat Root2Datum::fillDatum( caffe::Datum& datum, long entry, bool fillPMT ) {
 
       if ( entry>=0 ) {
 	long bytes = p_tree->GetEntry( entry );
@@ -49,7 +50,8 @@ namespace larbys {
       bool rgb=true;
       if ( fOptColors==kGreyScale ) rgb = false;
       bool wpmt=false;
-      if ( fWithPMT ) wpmt = true;
+      if ( fillPMT ) wpmt = true;
+      if ( !fWithPMT ) wpmt = false;
       
       cv::Mat cv_img;
       //int height = nticks;
@@ -68,9 +70,9 @@ namespace larbys {
       }
 
       std::vector< std::vector<int>* > pmt_vecs;
-      if ( fWithPMT )
+      if ( wpmt )
 	pmt_vecs.push_back( p_pmt_highgain );
-
+      
       
       convertor.vec2image( cv_img, tpc_vecs, pmt_vecs, height, width, height, 692, rgb, wpmt );
       caffe::CVMatToDatum( cv_img, &datum );

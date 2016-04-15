@@ -44,9 +44,10 @@ int main( int nargs, char** argv ) {
   std::string FLAGS_backend = "lmdb";
   bool write_images = true;
   bool is_color = true;
-  bool has_pmt = true;
-  bool util_drawboxes = false;
-  bool util_makecut = true;
+  bool has_pmt =false;
+  bool util_drawboxes = true;
+  bool util_makecut = false;
+  int timepad = 20;
 
   boost::scoped_ptr<caffe::db::DB> db(caffe::db::GetDB(FLAGS_backend));
   db->Open( input_lmdb.c_str(), caffe::db::READ );
@@ -73,6 +74,7 @@ int main( int nargs, char** argv ) {
   // convertor
   larbys::util::Datum2Image convertor;
   convertor.setAugment(true);
+  convertor.addTPCtrig(true);
 
   int nimages = 0;
   while ( cursor->valid() ) {
@@ -112,7 +114,7 @@ int main( int nargs, char** argv ) {
 	char buflabel[10];
 	bboxes >> buffer >> buflabel;
 	std::string bbox_key = buffer;
-	if ( std::atoi(buflabel)==1 ) {
+	if ( std::atoi(buflabel)!=0 ) {
 	  // if has truth boxes
 	  // loop with same keys
 	  std::vector<int> box;
@@ -148,7 +150,7 @@ int main( int nargs, char** argv ) {
     if ( truth_bboxes.size()>0 ) {
       for ( auto &bbox : truth_bboxes ) {
 	for (int p=0; p<3; p++) {
-	  cv::rectangle( img, cv::Point( bbox.at(4*p+1), bbox.at(4*p+0) ), cv::Point( bbox.at(4*p+3), bbox.at(4*p+2) ), color[p] );
+	  cv::rectangle( img, cv::Point( bbox.at(4*p+1), bbox.at(4*p+0)+timepad ), cv::Point( bbox.at(4*p+3), bbox.at(4*p+2)+timepad ), color[p] );
 	}
       }
     }

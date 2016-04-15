@@ -1,6 +1,6 @@
 #include "PMTWireWeights.h"
 #include <iostream>
-#include "opencv/cv.h"
+#include "opencv2/imgproc/imgproc.hpp"
 
 namespace larbys {
   namespace util {
@@ -103,7 +103,7 @@ namespace larbys {
 	    float d = getDistance2D( s2, s2, p2, l2 );
 	    float w = 1.0/(d*d);
 	    
-	    if ( plane==1 ) // we use a different, wider weight for the V plane -- alignement problems?
+	    if ( plane<=1 ) // we use a different, wider weight for the V plane -- alignement problems?
 	      w = 1.0/d;
 
 	    dists[ipmt] = w;
@@ -152,9 +152,103 @@ namespace larbys {
       }
       float dist = sqrt( psnorm - dot*dot/l2 );
       return dist;
-    }
+    }//end of getDistance2D
+    
+    void PMTWireWeights::applyWeights( const cv::Mat& plane_images_src, 
+				       const std::vector<int>& pmt_highgain_adcvec, 
+				       const std::vector<int>& pmt_lowgain_adcvec, 
+				       cv::Mat& plane_images_weighted ) {
+      // the pmt inputs are awkward
+      // expecting a vector containing an image of the PMTs
+      // this is going to be hacky. In the future, use a better data source
+      
+      // first, set the weight image size
+      if ( plane_images_src.size().width!=fCurrentWireWidth || fCurrentWireWidth==-1) {
+	fCurrentWireWidth = plane_images_src.size().width;
+	for (int p=0; p<3; p++) {
+	  cv::Mat weightimg( fCurrentWireWidth, fNPMTs, CV_32F );
+	  resize( planeWeights[p], weightimg, weightimg.size(), CV_INTER_LINEAR );
+	  weightImage[p] = weightimg;
+	}
+      }
+      
+      cv::Mat pmtq( fNPMTs, 1, CV_32F );
+      pmtq = cv::Mat::zeros( fNPMTs, 1, CV_32F );
+      float totalq = 0.0;
+      for (int ipmt=0; ipmt<fNPMTs; ipmt++) {
+	float high_q = 0.0;
+	float low_q  = 0.0;
+	bool usehigh = true;
+      
+	for (int t=190; t<320; t++) {
+	  // sum over the trigger window
+	  int index = t*768 + ipmt*int(768/fNPMTs);
+	  float highadc = pmt_highgain_adcvec.at( index );
+	  float lowadc  = pmt_lowgain_adcvec.at( index );
+	  if ( highadc<30 ) { // no single pe hits
+	    highadc = 0;
+	    lowadc = 0;
+	  }
+	  //std::cout << "(" << ipmt << "," << t << "): " << highadc << std::endl;
+	  high_q += highadc;
+	  low_q  += lowadc;
+	  if ( highadc>1040 )
+	    usehigh = false;
+	}
+	if ( high_q > 0.0 ) {
+	  if ( usehigh ) {
+	    pmtq.at<float>(ipmt,1) = high_q/100.0;
+	    totalq += high_q/100.0;
+	  }
+	  else {
+	    pmtq.at<float>(ipmt,1) = 10.0*low_q/100.0;
+	    totalq += 10.0*low_q/100.0;
+	  }
+	}
+      }//end of PMT loop
+      
+      
+      // normalize charge
+      if ( totalq > 0 ) {
+	for (int ipmt=0; ipmt<fNPMTs; ipmt++) {
+	  pmtq.at<float>(ipmt,1) /= totalq;
+	}
+      }
 
-    void PMTWireWeights::applyWeights( const cv::Mat& src, std::vector<float>& pmtQweights, cv::Mat& out ) {
-    }
+      std::cout << "TOTAL PMTQ: " << totalq << std::endl;
+      //std::cout << "PMTQ: " << pmtq << std::endl;
+      //std::cin.get();
+
+      int height = plane_images_src.size().height;
+      int width  = plane_images_src.size().width;
+      plane_images_weighted.create( height, width, CV_8UC3 );
+      plane_images_weighted = cv::Mat::zeros( height, width, CV_8UC3 );
+
+      cv::Mat wireweights[3];
+      for (int p=0; p<3; p++) {
+
+	wireweights[p] = weightImage[p]*pmtq;
+	
+	for (int w=0; w<width; w++) {
+	  float weight = wireweights[p].at<float>( 1, w );
+	  for (int h=0; h<height; h++) {
+	    double val = static_cast<double>( plane_images_src.at<cv::Vec3b>( h, w )[p] ) * weight;
+	    // if ( c>=0 ) {
+	    //   // augment
+	    //   val = std::min( 255, val*5 );
+	    //   if ( c==0 )
+	    // 	val = std::min( 255, val*5 );
+	    // }
+	    val = std::min( 254.99, val );
+	    plane_images_weighted.at<cv::Vec3b>( h, w )[p] = (int)val;
+	  } // end of time loop
+	  //std::cout << "W*P = " << (*outsize[p]).size() << " " << pmtq.size() << std::endl;
+	  //std::cout << "ww: " << wireweights[p].size() << std::endl;
+	  //std::cout << wireweights[p] << std::endl;
+	  //std::cin.get();
+	}//end of wire loop
+      }
+      
+    }// end of apply wire weights
   }
 }

@@ -15,7 +15,6 @@
 // Caffe and LMDB
 #include "lmdb.h"
 #include "caffe/common.hpp"
-//#include "caffe.pb.h" // datum definition
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/format.hpp"
 #include "caffe/util/db.hpp"
@@ -102,12 +101,16 @@ int main( int narg, char** argv ) {
 
   std::cout << "Setup Converter...";
   larbys::util::Root2Datum root2datum( tree, larbys::util::Root2Datum::kTrinocular, larbys::util::Root2Datum::kGreyScale, fAddPMT );
-  root2datum.colorscale.setADC_MIN( 0.0 );
-  root2datum.colorscale.setADC_MAX( 255.0 );
+  root2datum.convertor.colorscale.setADC_MIN( 0.0 );
+  root2datum.convertor.colorscale.setADC_MAX( 255.0 );
   root2datum.convertor.setTimePadding( 10 );
   root2datum.convertor.setWirePadding( 0 );
+  root2datum.convertor.applyThreshold( true );
+  root2datum.convertor.setThreshold( 10.0 );
+  root2datum.convertor.applyScaling( true );
+  root2datum.convertor.setScaling( 1.5 );
   root2datum.convertor.pmt_colorscale.setADC_MIN( 0.0 );
-  root2datum.convertor.pmt_colorscale.setADC_MAX( 1048.0 );
+  root2datum.convertor.pmt_colorscale.setADC_MAX( 255.0 );
   root2datum.convertor.setPMTimageFormat( larbys::util::Root2Image::kPMTtimescale );
   larbys::util::Datum2Image datum2img;
 
@@ -193,8 +196,8 @@ int main( int narg, char** argv ) {
       txn.reset( db->NewTransaction() );
     }
     
-    if ( numfilled>=50)
-      break;
+    // if ( numfilled>=50)
+    //   break;
     
     if ( entry%10==0 )
       std::cout << "Entry " << entry << std::endl;
@@ -202,7 +205,7 @@ int main( int narg, char** argv ) {
     entry++;
     bytes = tree->GetEntry( entry );
     
-    if ( entry>=5000 )
+    if ( entry>=500 )
       break;
   }
   
